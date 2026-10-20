@@ -237,6 +237,12 @@ Configuration belongs outside compiled code. Understand application properties, 
 
 A reverse proxy serves the React build and forwards /api requests to the backend. HTTPS terminates at the proxy. PostgreSQL stays on a private network. A single well-operated deployment is more useful here than unnecessary microservices.
 
+### Understand the reference dataset
+
+Learn how profiles limit startup data loading. ReferenceTimetableSeed runs only in demo and publishes the user-selected CSE sources once. Elective rooms come from same-page legends; repeated section entries retain their evidence. Room occupancy needs no invented faculty identity. University deployment still requires coverage across all courses.
+
+Exercise: remove a supplied publication from tomorrow, restart the app and check tomorrow again. It must stay removed. Explain how the retained scope prevents reseeding and how the original PDF and earlier dates remain available.
+
 ### Before real university use
 
 - Replace demo accounts with an approved provisioning and club-head verification process.

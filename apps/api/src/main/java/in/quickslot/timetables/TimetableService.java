@@ -365,10 +365,10 @@ public class TimetableService implements TimetableLookup {
           || entry.subject().toUpperCase().contains("ELECTIVE"))
         throw new ApiException(422, "Resolve the exact subject, including elective subgroup");
       if (entry.facultyIds() == null
-          || entry.facultyIds().isEmpty()
           || entry.facultyIds().size() > 10
           || !faculty.containsAll(entry.facultyIds()))
-        throw new ApiException(422, "Faculty IDs must be in the approved faculty directory");
+        throw new ApiException(
+            422, "Any assigned faculty IDs must be in the approved faculty directory");
     }
     if (!rooms.containsAll(coverage))
       throw new ApiException(422, "Coverage contains unknown or inactive rooms");

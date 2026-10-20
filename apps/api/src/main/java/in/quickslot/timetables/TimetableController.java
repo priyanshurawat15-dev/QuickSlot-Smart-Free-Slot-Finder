@@ -37,8 +37,10 @@ public class TimetableController {
   public record RetireInput(Integer expectedRevision, LocalDate effectiveFrom) {}
 
   @GetMapping
-  public Object list(HttpServletRequest request) {
-    return service.list(auth.admin(request));
+  public Object list(
+      @RequestParam(value = "include_archived", defaultValue = "false") boolean includeArchived,
+      HttpServletRequest request) {
+    return service.list(auth.admin(request), includeArchived);
   }
 
   @PostMapping
@@ -124,6 +126,17 @@ public class TimetableController {
     if (payload.expectedRevision() == null || payload.expectedRevision() < 0)
       throw new ApiException(422, "Provide expected_revision");
     return service.retire(id, payload.expectedRevision(), payload.effectiveFrom(), user);
+  }
+
+  @DeleteMapping("/{id}")
+  public Object delete(
+      @PathVariable String id,
+      @RequestParam("expected_revision") Integer expectedRevision,
+      HttpServletRequest request) {
+    var user = auth.admin(request);
+    if (expectedRevision == null || expectedRevision < 0)
+      throw new ApiException(422, "Provide expected_revision");
+    return service.archive(id, expectedRevision, user);
   }
 
   @GetMapping("/{id}/source")

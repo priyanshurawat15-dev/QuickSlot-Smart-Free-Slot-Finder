@@ -97,7 +97,9 @@ class ReferenceTimetableSeedIntegrationTest {
             .isEqualTo(original.readAllBytes());
       }
       @SuppressWarnings("unchecked")
-      var sessions = (List<ImportData.Session>) revision.get("sessions");
+      var sessions =
+          (List<ImportData.Session>)
+              timetables.detail(revision.get("id").toString(), admin).get("sessions");
       assertThat(sessions)
           .isNotEmpty()
           .allSatisfy(

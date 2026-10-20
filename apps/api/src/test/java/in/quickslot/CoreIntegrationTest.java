@@ -72,6 +72,9 @@ class CoreIntegrationTest {
   void prepare() {
     jdbc.execute("TRUNCATE users,rooms CASCADE");
     jdbc.execute("TRUNCATE login_attempts");
+    jdbc.update(
+        "UPDATE clubs SET active=true,name='Co-Dev Club',campus_id='gehu-hill-dehradun' WHERE"
+            + " id='codev'");
     schedule.complete = false;
     for (String role : List.of("STUDENT", "FACULTY", "CLUB_HEAD", "COORDINATOR", "HOD", "ADMIN")) {
       jdbc.update(
@@ -423,6 +426,165 @@ class CoreIntegrationTest {
                 "SELECT count(*) FROM audit_events WHERE action='ROOM_DETAILS_VERIFIED'",
                 Integer.class))
         .isEqualTo(1);
+  }
+
+  private void verifiedMembership() {
+    jdbc.update(
+        "INSERT INTO club_memberships(id,club_id,student_id,status) VALUES"
+            + " ('membership','codev','STUDENT','VERIFIED')");
+  }
+
+  private Map<String, Object> studentClubInput() {
+    var payload = new LinkedHashMap<>(input("room"));
+    payload.put("club_id", "codev");
+    payload.put("reason_category", "HACKATHON");
+    return payload;
+  }
+
+  private MvcResult studentRequest(Login student, Map<String, Object> payload, int expected)
+      throws Exception {
+    return mvc.perform(
+            post("/api/requests")
+                .cookie(student.cookie())
+                .header("X-CSRF-Token", student.csrf())
+                .contentType("application/json")
+                .content(json.writeValueAsString(payload)))
+        .andExpect(status().is(expected))
+        .andReturn();
+  }
+
+  @Test
+  void verifiedMembersCanRequestForTheirClubAndStillNeedCoordinatorApproval() throws Exception {
+    mvc.perform(get("/api/requests/eligibility")).andExpect(status().isUnauthorized());
+    var student = login("STUDENT");
+    mvc.perform(get("/api/requests/eligibility").cookie(student.cookie()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.can_request").value(false))
+        .andExpect(jsonPath("$.club_required").value(true))
+        .andExpect(jsonPath("$.clubs").isEmpty());
+    studentRequest(student, studentClubInput(), 403);
+    jdbc.update(
+        "INSERT INTO club_memberships(id,club_id,student_id,status) VALUES"
+            + " ('membership','codev','STUDENT','PENDING')");
+    studentRequest(student, studentClubInput(), 403);
+    jdbc.update("UPDATE club_memberships SET status='VERIFIED' WHERE id='membership'");
+    mvc.perform(get("/api/requests/eligibility").cookie(student.cookie()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.can_request").value(true))
+        .andExpect(jsonPath("$.clubs[0].id").value("codev"));
+    studentRequest(student, input("room"), 403);
+    var created = studentRequest(student, studentClubInput(), 201);
+    var body = json.readTree(created.getResponse().getContentAsString());
+    String id = body.get("id").asText();
+    assertThat(body.get("status").asText()).isEqualTo("PENDING");
+    assertThat(body.get("club_name").asText()).isEqualTo("Co-Dev Club");
+    assertThat(body.get("reason_category").asText()).isEqualTo("HACKATHON");
+    assertThat(jdbc.queryForObject("SELECT role FROM users WHERE id='STUDENT'", String.class))
+        .isEqualTo("STUDENT");
+    mvc.perform(
+            post("/api/requests/" + id + "/approve")
+                .cookie(student.cookie())
+                .header("X-CSRF-Token", student.csrf()))
+        .andExpect(status().isForbidden());
+    jdbc.update("UPDATE clubs SET name='Changed club name' WHERE id='codev'");
+    mvc.perform(get("/api/requests").cookie(student.cookie()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].club_name").value("Co-Dev Club"));
+    schedule.complete = true;
+    var coordinator = login("COORDINATOR");
+    mvc.perform(
+            post("/api/requests/" + id + "/approve")
+                .cookie(coordinator.cookie())
+                .header("X-CSRF-Token", coordinator.csrf()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("APPROVED"));
+  }
+
+  @Test
+  void clubMembershipAndAccountAreCheckedAgainBeforeApproval() throws Exception {
+    verifiedMembership();
+    var student = login("STUDENT");
+    var created = studentRequest(student, studentClubInput(), 201);
+    String id = json.readTree(created.getResponse().getContentAsString()).get("id").asText();
+    schedule.complete = true;
+    var coordinator = login("COORDINATOR");
+    jdbc.update("UPDATE club_memberships SET status='REJECTED' WHERE id='membership'");
+    mvc.perform(
+            post("/api/requests/" + id + "/approve")
+                .cookie(coordinator.cookie())
+                .header("X-CSRF-Token", coordinator.csrf()))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.detail").value("Verified membership in this club is required."));
+    jdbc.update("UPDATE club_memberships SET status='VERIFIED' WHERE id='membership'");
+    jdbc.update("UPDATE clubs SET active=false WHERE id='codev'");
+    mvc.perform(
+            post("/api/requests/" + id + "/approve")
+                .cookie(coordinator.cookie())
+                .header("X-CSRF-Token", coordinator.csrf()))
+        .andExpect(status().isConflict());
+    jdbc.update("UPDATE clubs SET active=true WHERE id='codev'");
+    jdbc.update("UPDATE users SET active=false WHERE id='STUDENT'");
+    mvc.perform(
+            post("/api/requests/" + id + "/approve")
+                .cookie(coordinator.cookie())
+                .header("X-CSRF-Token", coordinator.csrf()))
+        .andExpect(status().isConflict());
+    assertThat(
+            jdbc.queryForObject("SELECT status FROM booking_requests WHERE id=?", String.class, id))
+        .isEqualTo("PENDING");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM occupancies", Integer.class)).isZero();
+  }
+
+  @Test
+  void clubRequestsStayInsideVerifiedActiveCampusMembership() throws Exception {
+    verifiedMembership();
+    var student = login("STUDENT");
+    var foreignClub = new LinkedHashMap<>(studentClubInput());
+    foreignClub.put("club_id", "not-my-club");
+    studentRequest(student, foreignClub, 403);
+    jdbc.update("UPDATE clubs SET active=false WHERE id='codev'");
+    studentRequest(student, studentClubInput(), 403);
+    mvc.perform(get("/api/requests/eligibility").cookie(student.cookie()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.can_request").value(false));
+    jdbc.update("UPDATE clubs SET active=true,campus_id='other-campus' WHERE id='codev'");
+    studentRequest(student, studentClubInput(), 403);
+    mvc.perform(get("/api/requests/eligibility").cookie(student.cookie()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.clubs").isEmpty());
+  }
+
+  @Test
+  void facultyReasonsAreValidatedAndLegacyRequestsDefaultToOther() throws Exception {
+    var faculty = login("FACULTY");
+    mvc.perform(get("/api/requests/eligibility").cookie(faculty.cookie()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.can_request").value(true))
+        .andExpect(jsonPath("$.club_required").value(false));
+    String id = submit(faculty, "room");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT reason_category FROM booking_requests WHERE id=?", String.class, id))
+        .isEqualTo("OTHER");
+    var invalid = new LinkedHashMap<>(input("room"));
+    invalid.put("reason_category", "INVALID");
+    mvc.perform(
+            post("/api/requests")
+                .cookie(faculty.cookie())
+                .header("X-CSRF-Token", faculty.csrf())
+                .contentType("application/json")
+                .content(json.writeValueAsString(invalid)))
+        .andExpect(status().isUnprocessableEntity());
+    var extraClass = new LinkedHashMap<>(input("room"));
+    extraClass.put("reason_category", "EXTRA_CLASS");
+    mvc.perform(
+            post("/api/requests")
+                .cookie(faculty.cookie())
+                .header("X-CSRF-Token", faculty.csrf())
+                .contentType("application/json")
+                .content(json.writeValueAsString(extraClass)))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.reason_category").value("EXTRA_CLASS"));
   }
 
   @TestConfiguration

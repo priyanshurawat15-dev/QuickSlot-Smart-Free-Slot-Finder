@@ -59,7 +59,8 @@ public class TimetableService implements TimetableLookup {
       List<Issue> issues,
       List<String> coverageRoomIds,
       boolean acknowledged,
-      OffsetDateTime publishedAt) {}
+      OffsetDateTime publishedAt,
+      OffsetDateTime archivedAt) {}
 
   public record Review(
       Integer expectedRevision,
@@ -94,8 +95,9 @@ public class TimetableService implements TimetableLookup {
 
   private List<Revision> query(String suffix, Object... args) {
     return jdbc.query(
-        "SELECT r.*,s.scope_key,s.campus_id FROM timetable_revisions r JOIN timetable_scopes s ON"
-            + " s.id=r.scope_id "
+        "SELECT r.id,r.scope_id,r.filename,r.sha256,r.status,r.version,r.valid_from,r.valid_until,"
+            + "r.sessions,r.issues,r.coverage_room_ids,r.acknowledged,r.published_at,r.archived_at,s.scope_key,s.campus_id"
+            + " FROM timetable_revisions r JOIN timetable_scopes s ON s.id=r.scope_id "
             + suffix,
         (row, number) ->
             new Revision(
@@ -113,7 +115,8 @@ public class TimetableService implements TimetableLookup {
                 decode(row.getString("issues"), new TypeReference<List<Issue>>() {}),
                 decode(row.getString("coverage_room_ids"), new TypeReference<List<String>>() {}),
                 row.getBoolean("acknowledged"),
-                row.getObject("published_at", OffsetDateTime.class)),
+                row.getObject("published_at", OffsetDateTime.class),
+                row.getObject("archived_at", OffsetDateTime.class)),
         args);
   }
 
@@ -146,6 +149,7 @@ public class TimetableService implements TimetableLookup {
     result.put("coverage_room_ids", revision.coverageRoomIds());
     result.put("acknowledged", revision.acknowledged());
     result.put("published_at", revision.publishedAt());
+    result.put("archived_at", revision.archivedAt());
     result.put(
         "publication_windows",
         windows("WHERE revision_id=?", revision.id()).stream()
@@ -162,9 +166,29 @@ public class TimetableService implements TimetableLookup {
   }
 
   public List<Map<String, Object>> list(AuthenticatedUser user) {
-    return query("WHERE s.campus_id=? ORDER BY r.created_at DESC", user.campusId()).stream()
-        .map(this::detail)
+    return list(user, false);
+  }
+
+  public List<Map<String, Object>> list(AuthenticatedUser user, boolean includeArchived) {
+    return query(
+            "WHERE s.campus_id=?"
+                + (includeArchived ? "" : " AND r.archived_at IS NULL")
+                + " ORDER BY r.created_at DESC",
+            user.campusId())
+        .stream()
+        .map(
+            revision -> {
+              var summary = detail(revision);
+              summary.remove("sessions");
+              summary.remove("issues");
+              return summary;
+            })
         .toList();
+  }
+
+  private static void requireCurrent(Revision revision) {
+    if (revision.archivedAt() != null)
+      throw new ApiException(409, "Timetable was deleted; its source remains in history");
   }
 
   public Source source(String revisionId, AuthenticatedUser user) {
@@ -288,6 +312,7 @@ public class TimetableService implements TimetableLookup {
   @Transactional
   public Map<String, Object> review(String revisionId, Review payload, AuthenticatedUser user) {
     var revision = find(revisionId, user.campusId(), true);
+    requireCurrent(revision);
     if (payload.expectedRevision() == null || payload.expectedRevision() < 0)
       throw new ApiException(422, "Provide expected_revision");
     if (revision.version() != payload.expectedRevision())
@@ -415,6 +440,7 @@ public class TimetableService implements TimetableLookup {
       String revisionId, int expectedVersion, AuthenticatedUser user) {
     writeLock.acquire();
     var revision = find(revisionId, user.campusId(), true);
+    requireCurrent(revision);
     if (revision.version() != expectedVersion)
       throw new ApiException(409, "Revision changed; reload before publishing");
     if (!revision.status().equals("REVIEWED")
@@ -466,6 +492,7 @@ public class TimetableService implements TimetableLookup {
     if (effectiveFrom == null) throw new ApiException(422, "Provide effective_from");
     writeLock.acquire();
     var revision = find(revisionId, user.campusId(), true);
+    requireCurrent(revision);
     if (revision.version() != expectedVersion)
       throw new ApiException(409, "Revision changed; reload before removing");
     if (!revision.status().equals("PUBLISHED"))
@@ -477,14 +504,7 @@ public class TimetableService implements TimetableLookup {
             effectiveFrom);
     if (affected.isEmpty())
       throw new ApiException(409, "Timetable is already inactive from the selected date");
-    for (var window : affected) {
-      if (window.validFrom().isBefore(effectiveFrom))
-        jdbc.update(
-            "UPDATE timetable_publications SET valid_until=? WHERE id=?",
-            effectiveFrom.minusDays(1),
-            window.id());
-      else jdbc.update("DELETE FROM timetable_publications WHERE id=?", window.id());
-    }
+    endWindows(affected, effectiveFrom);
     jdbc.update("UPDATE timetable_revisions SET version=version+1 WHERE id=?", revisionId);
     audit.record(
         user,
@@ -492,6 +512,51 @@ public class TimetableService implements TimetableLookup {
         revisionId,
         Map.of("effective_from", effectiveFrom.toString(), "previous_windows", affected));
     return detail(revisionId, user);
+  }
+
+  @Transactional
+  public Map<String, Object> archive(
+      String revisionId, int expectedVersion, AuthenticatedUser user) {
+    writeLock.acquire();
+    var revision = find(revisionId, user.campusId(), true);
+    requireCurrent(revision);
+    if (revision.version() != expectedVersion)
+      throw new ApiException(409, "Revision changed; reload before deleting");
+    LocalDate effectiveFrom = LocalDate.now(INDIA);
+    var affected =
+        windows(
+            "WHERE revision_id=? AND (valid_until IS NULL OR valid_until>=?)",
+            revisionId,
+            effectiveFrom);
+    endWindows(affected, effectiveFrom);
+    jdbc.update(
+        "UPDATE timetable_revisions SET archived_at=now(),version=version+1 WHERE id=?",
+        revisionId);
+    audit.record(
+        user,
+        "timetable.deleted",
+        revisionId,
+        Map.of(
+            "effective_from",
+            effectiveFrom.toString(),
+            "previous_windows",
+            affected,
+            "source_sha256",
+            revision.sha256(),
+            "previous_status",
+            revision.status()));
+    return detail(revisionId, user);
+  }
+
+  private void endWindows(List<Window> windows, LocalDate effectiveFrom) {
+    for (var window : windows) {
+      if (window.validFrom().isBefore(effectiveFrom))
+        jdbc.update(
+            "UPDATE timetable_publications SET valid_until=? WHERE id=?",
+            effectiveFrom.minusDays(1),
+            window.id());
+      else jdbc.update("DELETE FROM timetable_publications WHERE id=?", window.id());
+    }
   }
 
   private void checkConflicts(Revision revision) {

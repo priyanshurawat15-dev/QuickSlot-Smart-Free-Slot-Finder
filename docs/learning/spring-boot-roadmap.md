@@ -160,7 +160,7 @@ Cookie authentication needs CSRF protection for state-changing requests. Learn h
 ### QuickSlot permission exercise
 
 - Anonymous visitors and students may inspect permitted classroom/LT availability.
-- Faculty and verified club heads may submit booking requests; students may not.
+- Faculty, verified club heads and verified club members may submit requests; students must request for their own verified club.
 - The assigned coordinator may approve, reject or forward a request.
 - A forwarded request requires a HOD decision. Its coordinator may still inspect it.
 - An administrator manages sources and accounts but does not gain approval powers automatically.
@@ -190,7 +190,7 @@ A publication has a scope, a start date and an optional end. No end means it con
 
 Replacing CSE semester V preserves semester III and other scopes. Removal ends effective windows from the chosen date and retains earlier dates and source bytes. Uploading a draft changes no active schedule. Publication rejects conflicts with confirmed bookings.
 
-Read TimetableService's upload, publish, retire and active methods with the nullable-end Flyway migration. Exact PDF room matches use the active campus inventory; ambiguity stays unresolved and matching never confirms whole-room coverage.
+Read TimetableService's upload, publish, retire, archive and active methods with the Flyway migrations. Archive removes active dates while retaining history. Exact room matching never confirms whole-room coverage.
 
 Concurrent administrators need stale-edit protection. A review or publish command carries the revision it was based on. If another edit wins first, reject the stale command and ask the user to refresh.
 
@@ -214,7 +214,7 @@ Keep pure interval calculations fast and separate from database tests. Test the 
 
 ### QuickSlot acceptance checklist
 
-- Student submission is forbidden; faculty and club-head submissions succeed.
+- Unverified student submission is forbidden; verified members can request for their club without gaining a staff role.
 - Coordinator forwarding changes decision authority without reserving a room.
 - HOD approval rechecks current conflicts, and self-approval is denied.
 - Incomplete schedule coverage produces Unknown, never verified Available.
@@ -285,7 +285,7 @@ Use the repository's pinned versions when following examples. Some links show th
 
 ### What you need to learn
 
-A verified club membership is a relationship between a student and a club. It is separate from the account role. A student who joins Co-Dev remains a student and cannot book a classroom. Model that distinction with club_memberships and club_managers instead of rewriting users.role.
+A verified club membership is a relationship between a student and a club, separate from the account role. A Co-Dev member remains a student but can request a room for Co-Dev. Coordinator approval is still required. Model eligibility through club_memberships and club_managers instead of rewriting users.role.
 
 Public club profiles show the supplied organizing committee data. Membership requests and reviewer lists need a signed session. A reviewer must be an assigned club head or a same-campus administrator. Every write still needs CSRF protection.
 
@@ -293,12 +293,14 @@ Public club profiles show the supplied organizing committee data. Membership req
 
 Follow ClubController into ClubService. Join requests lock the account before inserting the unique club/student relationship, which prevents two repeated clicks from creating duplicate applications. Decisions lock the membership row. Pending can become verified or rejected; rejected students can apply again. Audit events preserve the decision trail.
 
+Then follow RequestService's eligibility, submission and approval checks. Reason categories distinguish extra classes, workshops, hackathons, club meetings and Other. Club requests retain a club identity snapshot. Approval locks and rechecks membership and account status, so revocation after submission still takes effect.
+
 Room capacity and unconfirmed floor values are nullable. The user confirmed that 017 is ground floor, 1xx is first floor and 2xx is second floor, so source inventory uses that convention. An administrator records confirmed values through RoomController. This update uses the same scheduling write lock as booking approval, so approval reads consistent room metadata.
 
 ### Exercise
 
-Sign in as a student, request Co-Dev membership and verify it using the assigned club head. Reopen the student profile and confirm the verified badge. Try to book a room with the same student account: the server must still refuse. Then try to review membership using an unrelated club head and confirm that it is denied.
+Verify a student's Co-Dev membership, then submit a workshop request for Co-Dev. Confirm the account remains a student and staff lookup is denied. Revoke membership before approval: approval must fail. Try another club's ID and confirm submission is denied.
 
 ### Completion check
 
-Explain the difference between authentication, account role, membership status and club-specific authority. Show the database uniqueness constraint, the decision transaction and the tests proving that membership verification never grants booking permission.
+Explain authentication, account role, membership status and club-specific authority. Show the uniqueness constraint, approval transaction and tests proving membership permits only a club request, without staff access. Explain why a pending request is not a booking.

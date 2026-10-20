@@ -56,13 +56,30 @@ test("faculty sign-in preserves the selected room and interval", async ({
   ).toHaveText("12–13");
 });
 
-test("student account cannot open the booking form", async ({ page }) => {
+test("student request access follows verified club membership", async ({
+  page,
+}) => {
   await page.goto("/login?returnTo=%2Frequests%2Fnew");
   await signIn(page, "student@demo.quickslot.test");
-  await expect(
-    page.getByText("Your account cannot access this page.", { exact: false }),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Send request" })).toHaveCount(
-    0,
-  );
+  await expect(page).toHaveURL(/\/requests\/new$/);
+  const response = await page.request.get("/api/requests/eligibility");
+  expect(response.ok()).toBeTruthy();
+  const eligibility = await response.json();
+  if (eligibility.can_request) {
+    await expect(
+      page.getByRole("combobox", { name: "Request for club" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Send request" }),
+    ).toBeVisible();
+  } else {
+    await expect(
+      page.getByText("Join a club and have your membership verified", {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Send request" }),
+    ).toHaveCount(0);
+  }
 });

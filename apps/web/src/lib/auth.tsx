@@ -52,7 +52,9 @@ export function canReview(role?: string) {
   return ["COORDINATOR", "ALLOCATION_FACULTY", "HOD"].includes(role || "");
 }
 export function canRequest(role?: string) {
-  return ["FACULTY", "CLUB_HEAD", "COORDINATOR", "HOD"].includes(role || "");
+  return ["STUDENT", "FACULTY", "CLUB_HEAD", "COORDINATOR", "HOD"].includes(
+    role || "",
+  );
 }
 export function canViewFaculty(role?: string) {
   return ["FACULTY", "COORDINATOR", "HOD", "ADMIN"].includes(role || "");

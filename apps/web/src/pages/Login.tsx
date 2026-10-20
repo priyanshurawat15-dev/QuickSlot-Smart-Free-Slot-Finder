@@ -46,8 +46,8 @@ export function Login() {
         </Link>
         <h1>Sign in.</h1>
         <p>
-          Sign in to manage club membership or room requests. Students can join
-          clubs; faculty and club heads can request rooms.
+          Sign in to manage club membership or room requests. Verified club
+          members can request rooms for their club.
         </p>
         <div className="login-note">
           Public room search does not require sign in.

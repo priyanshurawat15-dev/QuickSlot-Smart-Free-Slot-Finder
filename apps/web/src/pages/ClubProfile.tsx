@@ -249,8 +249,8 @@ export function ClubProfile() {
             </>
           ) : null}
           <p className="club-membership-note">
-            Club membership does not give room booking permission. Only
-            authorized faculty and verified club heads can request rooms.
+            Verified members can request a room for their club. The allocation
+            coordinator must approve the request before it becomes a booking.
           </p>
         </aside>
       </div>

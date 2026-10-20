@@ -15,9 +15,15 @@ These are local review packages, not published GitHub pull requests. Branches ar
 | 09 | codex/09-room-presentation | codex/08-integration-and-delivery | [Room presentation](09-room-presentation.md) |
 | 10 | codex/10-club-membership | codex/09-room-presentation | [Clubs and membership](10-club-membership.md) |
 | 11 | codex/11-interface-refinement | codex/10-club-membership | [Interface refinement](11-interface-refinement.md) |
+| 12 | codex/12-ongoing-timetables | codex/11-interface-refinement | [Ongoing timetables](12-ongoing-timetables.md) |
+| 13 | codex/13-timetable-management-and-club-requests | codex/12-ongoing-timetables | [Timetable management and club requests](13-timetable-management-and-club-requests.md) |
 
 Use [01], [02] and so on as title prefixes when a maintainer can push these branches. Keep the immediate predecessor as the base during review. After merging a predecessor, retarget its successor to main. Preserve predecessor commits or coordinate a rebase; squash-merging a stacked branch without rebasing successors can duplicate diffs.
 
-The user subsequently requested publication. Upstream access is read-only, so the combined rebuild is published as [PR #1](https://github.com/priyanshurawat15-dev/QuickSlot-Smart-Free-Slot-Finder/pull/1) from the authenticated CodevGehu fork. The local branch descriptions remain milestone review packages; they are not separate published PRs. Review each milestone locally with git diff BASE...BRANCH.
+The user authorized upstream pushes using Ixotic27. The original fork [PR #1](https://github.com/priyanshurawat15-dev/QuickSlot-Smart-Free-Slot-Finder/pull/1) is closed as superseded; its history remains available. Current published PRs are stacked directly in the repository:
 
-Published PR #1 targets main and includes milestones 01-11 in commit order. It has not been merged. Follow-up interface and access-policy corrections are committed on the same review branch.
+1. [PR #2: milestones 01-11](https://github.com/priyanshurawat15-dev/QuickSlot-Smart-Free-Slot-Finder/pull/2), based on main.
+2. [PR #3: ongoing timetables](https://github.com/priyanshurawat15-dev/QuickSlot-Smart-Free-Slot-Finder/pull/3), based on codex/11-interface-refinement.
+3. [PR #4: timetable management and club requests](https://github.com/priyanshurawat15-dev/QuickSlot-Smart-Free-Slot-Finder/pull/4), based on codex/12-ongoing-timetables.
+
+Merge in that order. After each predecessor is merged, retarget the next PR to main. No PR has been merged by this task. The numbered local descriptions remain milestone review packages rather than separate published PRs.

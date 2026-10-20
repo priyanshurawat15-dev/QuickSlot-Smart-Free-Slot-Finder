@@ -15,6 +15,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RequestService {
+  private static final Set<String> STAFF_REQUESTERS =
+      Set.of("FACULTY", "CLUB_HEAD", "COORDINATOR", "HOD");
+  private static final Map<String, String> REASON_CATEGORIES =
+      Map.of(
+          "EXTRA_CLASS", "Extra class",
+          "WORKSHOP", "Workshop",
+          "HACKATHON", "Hackathon",
+          "CLUB_MEETING", "Club meeting",
+          "OTHER", "Other");
   private final JdbcTemplate jdbc;
   private final RequestRepository requests;
   private final RoomRepository rooms;
@@ -52,6 +61,76 @@ public class RequestService {
             room.id()));
   }
 
+  public Map<String, ?> eligibility(AuthenticatedUser user) {
+    String clubScope =
+        switch (user.role()) {
+          case "STUDENT" ->
+              " AND EXISTS(SELECT 1 FROM club_memberships m WHERE m.club_id=c.id AND m.student_id=?"
+                  + " AND m.status='VERIFIED')";
+          case "CLUB_HEAD" ->
+              " AND EXISTS(SELECT 1 FROM club_managers m WHERE m.club_id=c.id AND m.user_id=?)";
+          default -> "";
+        };
+    List<Map<String, Object>> clubs = List.of();
+    boolean student = user.role().equals("STUDENT");
+    boolean staff = STAFF_REQUESTERS.contains(user.role());
+    if (student || staff) {
+      Object[] args =
+          clubScope.isEmpty()
+              ? new Object[] {user.campusId()}
+              : new Object[] {user.campusId(), user.id()};
+      clubs =
+          jdbc.queryForList(
+              "SELECT c.id,c.slug,c.name FROM clubs c WHERE c.active AND c.campus_id=?"
+                  + clubScope
+                  + " ORDER BY c.name",
+              args);
+    }
+    return Map.of(
+        "can_request",
+        staff || (student && !clubs.isEmpty()),
+        "club_required",
+        student,
+        "clubs",
+        clubs,
+        "reason_categories",
+        List.of("EXTRA_CLASS", "WORKSHOP", "HACKATHON", "CLUB_MEETING", "OTHER").stream()
+            .map(value -> Map.of("value", value, "label", REASON_CATEGORIES.get(value)))
+            .toList());
+  }
+
+  private String requireClub(
+      AuthenticatedUser user, String clubId, boolean membershipRequired, int status) {
+    if (clubId == null || clubId.isBlank()) {
+      if (membershipRequired)
+        throw new ApiException(status, "Choose a club with verified membership.");
+      return null;
+    }
+    var club =
+        jdbc.queryForList(
+            "SELECT name FROM clubs WHERE id=? AND campus_id=? AND active FOR SHARE",
+            clubId,
+            user.campusId());
+    if (club.isEmpty())
+      throw new ApiException(status, "The club is inactive or outside your campus.");
+    if (membershipRequired
+        && jdbc.queryForList(
+                "SELECT id FROM club_memberships WHERE club_id=? AND student_id=? AND"
+                    + " status='VERIFIED' FOR SHARE",
+                clubId,
+                user.id())
+            .isEmpty())
+      throw new ApiException(status, "Verified membership in this club is required.");
+    if (user.role().equals("CLUB_HEAD")
+        && jdbc.queryForList(
+                "SELECT user_id FROM club_managers WHERE club_id=? AND user_id=? FOR SHARE",
+                clubId,
+                user.id())
+            .isEmpty())
+      throw new ApiException(status, "You can request on behalf of your assigned clubs only.");
+    return club.getFirst().get("name").toString();
+  }
+
   public List<Map<String, ?>> list(AuthenticatedUser user) {
     return requests.all().stream()
         .filter(
@@ -78,6 +157,9 @@ public class RequestService {
     output.put("start_time", item.startTime());
     output.put("end_time", item.endTime());
     output.put("purpose", item.purpose());
+    output.put("reason_category", item.reasonCategory());
+    output.put("club_id", item.clubId());
+    output.put("club_name", item.clubName());
     output.put("attendance", item.attendance());
     output.put("status", item.status());
     output.put(
@@ -165,8 +247,15 @@ public class RequestService {
 
   @Transactional
   public Map<String, ?> submit(AuthenticatedUser user, RequestInput input, String rawKey) {
-    if (!Set.of("FACULTY", "CLUB_HEAD", "COORDINATOR", "HOD").contains(user.role()))
-      throw new ApiException(403, "Only faculty and verified club heads may request rooms.");
+    boolean clubMembershipRequired = user.role().equals("STUDENT");
+    if (!STAFF_REQUESTERS.contains(user.role()) && !clubMembershipRequired)
+      throw new ApiException(403, "This account cannot request rooms.");
+    lock.acquire();
+    String clubId = input.clubId() == null || input.clubId().isBlank() ? null : input.clubId();
+    String clubName = requireClub(user, clubId, clubMembershipRequired, 403);
+    String category = input.reasonCategory() == null ? "OTHER" : input.reasonCategory();
+    if (!REASON_CATEGORIES.containsKey(category))
+      throw new ApiException(422, "Choose a valid request reason.");
     if (input.purpose().strip().length() < 3)
       throw new ApiException(422, "Describe the purpose in at least three characters.");
     AvailabilityService.validateWindow(input.startTime(), input.endTime());
@@ -186,7 +275,6 @@ public class RequestService {
       throw new ApiException(404, "Room not found.");
     if (room.capacity() != null && input.attendance() > room.capacity())
       throw new ApiException(422, "Attendance exceeds room capacity.");
-    lock.acquire();
     String key = rawKey == null ? null : "submit:" + rawKey;
     String fingerprint = fingerprint(input);
     var repeated = repeated(user, key, fingerprint);
@@ -202,8 +290,8 @@ public class RequestService {
     String id = UUID.randomUUID().toString();
     jdbc.update(
         "INSERT INTO"
-            + " booking_requests(id,requester_id,room_id,date,start_time,end_time,purpose,attendance)"
-            + " VALUES (?,?,?,?,?,?,?,?)",
+            + " booking_requests(id,requester_id,room_id,date,start_time,end_time,purpose,attendance,reason_category,club_id,club_name,club_membership_required)"
+            + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         id,
         user.id(),
         room.id(),
@@ -211,7 +299,11 @@ public class RequestService {
         input.startTime(),
         input.endTime(),
         input.purpose().strip(),
-        input.attendance());
+        input.attendance(),
+        category,
+        clubId,
+        clubName,
+        clubMembershipRequired);
     event(user, id, "SUBMITTED", "");
     reviewers.forEach(reviewer -> notify(reviewer.id(), id, "New room request for " + room.code()));
     remember(user, key, fingerprint, id);
@@ -257,6 +349,16 @@ public class RequestService {
     }
 
     if (action.equals("approve")) {
+      var requester =
+          jdbc.query(
+              "SELECT * FROM users WHERE id=? AND active FOR SHARE",
+              AuthService::user,
+              item.requesterId());
+      if (requester.isEmpty() || !requester.getFirst().campusId().equals(room.campusId()))
+        throw new ApiException(409, "The requester account is inactive or outside this campus.");
+      if (!item.clubMembershipRequired() && !STAFF_REQUESTERS.contains(requester.getFirst().role()))
+        throw new ApiException(409, "The requester no longer has room request permission.");
+      requireClub(requester.getFirst(), item.clubId(), item.clubMembershipRequired(), 409);
       if (room.capacity() == null)
         throw new ApiException(409, "Room capacity must be verified before approval.");
       if (!room.active() || item.attendance() > room.capacity())

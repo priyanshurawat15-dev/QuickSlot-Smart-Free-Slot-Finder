@@ -126,8 +126,8 @@ export function Layout() {
           <div className="footer-guidance">
             <h2>Using a room</h2>
             <p>
-              Students can check availability. Faculty and verified club heads
-              can request a booking.
+              Faculty, club heads and verified club members can request a
+              booking. Requests need allocation approval.
             </p>
             <Link to="/requests/new">
               Request a room <ArrowUpRight size={14} />

@@ -62,7 +62,7 @@ Idempotency keys distinguish repeated commands from changed input. An owner may 
 
 ```mermaid
 flowchart TD
-    A[Administrator uploads PDF or DOCX] --> B[Extract sessions and evidence]
+    A[Administrator uploads PDF or DOCX with start date] --> B[Extract sessions and evidence]
     B --> C[Retain draft with unresolved issues]
     C --> D[Map faculty and rooms and verify dates]
     D --> E[Explicit coverage acknowledgement]
@@ -72,9 +72,16 @@ flowchart TD
     H -->|Yes| I[Reject publication and preserve current schedule]
     H -->|No| J[Replace overlapping dates in the same scope]
     J --> K[Retain old windows outside replacement and other scopes]
+    K --> L[Continue without expiry when no end date is set]
+    L --> M[Administrator removes from a chosen date]
+    M --> N[End effective windows and retain source and earlier dates]
 ```
 
-PDF extraction reads ruled table geometry and glyph positions. Word extraction uses the template's marked tables and explicit IDs. Neither adapter guesses unresolved faculty or room identities. Administrators can download the original source beside the extracted rows. A supplied Word template is available in the timetable administration screen.
+PDF extraction reads ruled table geometry and glyph positions. Exact CR/LT labels are matched only to a single active room in the same campus. Unknown or ambiguous labels remain for review; room matching does not confirm complete coverage. Word extraction uses the template's marked tables and explicit IDs. Neither adapter guesses unresolved faculty identities. Administrators can download the original source beside the extracted rows. A supplied Word template is available in the timetable administration screen.
+
+The end date is optional and empty by default. A null end means the timetable continues until an administrator replaces or removes it. Publishing a replacement changes the overlapping dates within that scope; uploading a draft alone does not change availability. Removal ends that revision's effective windows from the administrator's chosen date. Earlier windows, original source bytes and audit events remain available. Both commands use the scheduling write lock and reject stale revision numbers.
+
+Room colors come from the availability response for the selected date and hours: green for confirmed free, red for a class or approved booking, neutral when completeness is unconfirmed. No matching class in a single course PDF is sufficient to mark a room free.
 
 Reviewed classes remain dated publication rules rather than materialized daily occupancy rows. Availability combines those rules with booking occupancy. A shared PostgreSQL write lock makes publication and approval mutually consistent; replacing it with finer resource locks is a future measured optimization. The importer currently performs bounded extraction inside the HTTP request. There is no background worker or external notification service in this milestone.
 
@@ -97,6 +104,21 @@ erDiagram
 ```
 
 Campus room coverage must be confirmed by an administrator after accounting for all courses using the room. The current download inventory covers CSE only and is not published automatically. Operating policies, full source coverage, account provisioning and recovery validation remain release gates documented in the root README.
+
+For the current local demonstration, the user chose the supplied CSE III and V timetables as the availability dataset. The demo profile publishes source-backed classroom/LT occupancy and uses that dataset for green/red results. It includes elective room assignments printed in each page's legend. Faculty identities are optional for room occupancy, so missing faculty does not require an invented name. This initial publication is persisted once; restarting the app must not restore a timetable an administrator removed or replaced. The normal publication and conflict rules continue to govern subsequent changes.
+
+```mermaid
+flowchart TD
+    A[Demo startup with seeding enabled] --> B{Supplied timetable scope retained?}
+    B -->|Yes| C[Keep administrator's current publication or removal]
+    B -->|No| D[Read original PDF and same-page elective legends]
+    D --> E[Deduplicate shared classes and retain source occurrences]
+    E --> F{Every classroom and LT mapping resolved?}
+    F -->|No| G[Stop without publishing unchecked occupancy]
+    F -->|Yes| H[Review and publish supplied dataset without expiry]
+    H --> I[Availability combines classes and approved bookings]
+    I --> J[Green free / red in use for selected date and hour]
+```
 
 ## Provided room inventory
 

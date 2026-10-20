@@ -2,11 +2,13 @@
 
 ## Product
 
-Build for Graphic Era Hill University, Dehradun. Students and public visitors can inspect classroom and lecture-theatre availability, but students cannot book. Students may request club membership; assigned club heads verify it and administrators can manage it. Membership does not change booking permission. Faculty and verified club heads can request. The responsible allocation coordinator can decide or forward to the scoped HOD. Forwarded requests require HOD decision. Administrators manage inventory, accounts and timetable publication. Never infer room coverage from one course timetable, and retain old timetable versions as historical evidence when publishing replacements.
+Build for Graphic Era Hill University, Dehradun. Students and public visitors can inspect classroom and lecture-theatre availability, but students cannot book. Students may request club membership; assigned club heads verify it and administrators can manage it. Membership does not change booking permission. Faculty and verified club heads can request. The responsible allocation coordinator can decide or forward to the scoped HOD. Forwarded requests require HOD decision. Administrators manage inventory, accounts and timetable publication. Timetables have no default end date: they remain effective until an administrator removes or replaces them. Never infer room coverage from one course timetable, and retain old timetable versions as historical evidence when publishing replacements.
 
 ## Implementation
 
 The user selected Java with Spring Boot for the backend and React with TypeScript for the frontend. Implement the rebuild from scratch. Keep feature modules focused, use readable formatting, and avoid unnecessary abstractions. Comments explain reasons; do not add separator banners or comments that repeat code. Use database transactions and constraints for allocation correctness. Do not declare incomplete timetable data verified free.
+
+For the current demonstration, the user explicitly chose the supplied CSE timetables as the availability dataset. In the local demo profile, show green/red against that dataset without waiting for other courses. Retain source evidence, include the printed elective room assignments and preserve administrator replacement/removal. Production publication still requires confirmation of all courses using a room. Faculty assignment may be empty for room-only occupancy; never invent faculty identities.
 
 ## Design
 

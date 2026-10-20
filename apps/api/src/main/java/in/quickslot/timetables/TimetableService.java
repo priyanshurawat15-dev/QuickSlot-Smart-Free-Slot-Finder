@@ -150,8 +150,13 @@ public class TimetableService implements TimetableLookup {
         "publication_windows",
         windows("WHERE revision_id=?", revision.id()).stream()
             .map(
-                window ->
-                    Map.of("valid_from", window.validFrom(), "valid_until", window.validUntil()))
+                window -> {
+                  Map<String, Object> value = new LinkedHashMap<>();
+                  value.put("id", window.id());
+                  value.put("valid_from", window.validFrom());
+                  value.put("valid_until", window.validUntil());
+                  return value;
+                })
             .toList());
     return result;
   }
@@ -183,8 +188,8 @@ public class TimetableService implements TimetableLookup {
       throw new ApiException(413, "Timetable upload exceeds 10 MiB");
     if (scopeKey == null || scopeKey.isBlank() || scopeKey.length() > 160)
       throw new ApiException(422, "Provide a scope key up to 160 characters");
-    if (from == null || until == null || until.isBefore(from) || until.isAfter(from.plusDays(370)))
-      throw new ApiException(422, "Term must span between 1 and 371 days");
+    if (from == null || (until != null && until.isBefore(from)))
+      throw new ApiException(422, "Provide a start date and an optional end date on or after it");
     if (coverage == null || coverage.size() > 500 || coverage.stream().anyMatch(Objects::isNull))
       throw new ApiException(422, "Coverage must contain at most 500 room IDs");
     String safeName = filename == null ? "" : filename.replace('\\', '/');
@@ -195,7 +200,22 @@ public class TimetableService implements TimetableLookup {
       if (safeName.toLowerCase().endsWith(".pdf")
           && content.length > 5
           && new String(content, 0, 5, java.nio.charset.StandardCharsets.US_ASCII).equals("%PDF-"))
-        extracted = new PdfTimetableAdapter().extract(content);
+        extracted =
+            new PdfRoomMatcher()
+                .match(
+                    new PdfTimetableAdapter().extract(content),
+                    user.campusId(),
+                    jdbc.query(
+                        "SELECT id,code,kind,campus_id,active FROM rooms WHERE campus_id=? AND"
+                            + " active",
+                        (row, number) ->
+                            new PdfRoomMatcher.Candidate(
+                                row.getString("id"),
+                                row.getString("code"),
+                                row.getString("kind"),
+                                row.getString("campus_id"),
+                                row.getBoolean("active")),
+                        user.campusId()));
       else if (safeName.toLowerCase().endsWith(".docx"))
         extracted = new DocxTimetableAdapter().extract(content);
       else throw new IllegalArgumentException("Upload a supported PDF or DOCX file");
@@ -212,7 +232,9 @@ public class TimetableService implements TimetableLookup {
                 Map.of(),
                 null));
       if (!from.toString().equals(extracted.metadata().get("Valid from"))
-          || !until.toString().equals(extracted.metadata().get("Valid until")))
+          || !Objects.equals(
+              until == null ? null : until.toString(),
+              blankToNull(extracted.metadata().get("Valid until"))))
         issues.add(
             issue(
                 "DATES_MISMATCH", "Confirm document dates against revision dates", Map.of(), null));
@@ -257,6 +279,10 @@ public class TimetableService implements TimetableLookup {
     audit.record(
         user, "timetable.uploaded", revisionId, Map.of("sha256", hash, "scope_key", scopeKey));
     return detail(revisionId, user);
+  }
+
+  private static String blankToNull(String value) {
+    return value == null || value.isBlank() ? null : value;
   }
 
   @Transactional
@@ -339,10 +365,10 @@ public class TimetableService implements TimetableLookup {
           || entry.subject().toUpperCase().contains("ELECTIVE"))
         throw new ApiException(422, "Resolve the exact subject, including elective subgroup");
       if (entry.facultyIds() == null
-          || entry.facultyIds().isEmpty()
           || entry.facultyIds().size() > 10
           || !faculty.containsAll(entry.facultyIds()))
-        throw new ApiException(422, "Faculty IDs must be in the approved faculty directory");
+        throw new ApiException(
+            422, "Any assigned faculty IDs must be in the approved faculty directory");
     }
     if (!rooms.containsAll(coverage))
       throw new ApiException(422, "Coverage contains unknown or inactive rooms");
@@ -397,12 +423,14 @@ public class TimetableService implements TimetableLookup {
       throw new ApiException(409, "Review and resolve every issue before publishing");
     validate(revision.sessions(), revision.coverageRoomIds(), user.campusId());
     checkConflicts(revision);
-    for (var previous :
+    var replacedWindows =
         windows(
-            "WHERE scope_id=? AND valid_from<=? AND valid_until>=?",
+            "WHERE scope_id=? AND daterange(valid_from,valid_until,'[]')"
+                + " && daterange(?::date,?::date,'[]')",
             revision.scopeId(),
-            revision.validUntil(),
-            revision.validFrom())) {
+            revision.validFrom(),
+            revision.validUntil());
+    for (var previous : replacedWindows) {
       jdbc.update("DELETE FROM timetable_publications WHERE id=?", previous.id());
       if (previous.validFrom().isBefore(revision.validFrom()))
         insertWindow(
@@ -410,7 +438,9 @@ public class TimetableService implements TimetableLookup {
             previous.revisionId(),
             previous.validFrom(),
             revision.validFrom().minusDays(1));
-      if (previous.validUntil().isAfter(revision.validUntil()))
+      if (revision.validUntil() != null
+          && (previous.validUntil() == null
+              || previous.validUntil().isAfter(revision.validUntil())))
         insertWindow(
             previous.scopeId(),
             previous.revisionId(),
@@ -422,31 +452,67 @@ public class TimetableService implements TimetableLookup {
         "UPDATE timetable_revisions SET status='PUBLISHED',published_at=now(),version=version+1"
             + " WHERE id=?",
         revisionId);
-    audit.record(user, "timetable.published", revisionId, Map.of("scope_key", revision.scopeKey()));
+    audit.record(
+        user,
+        "timetable.published",
+        revisionId,
+        Map.of("scope_key", revision.scopeKey(), "previous_windows", replacedWindows));
+    return detail(revisionId, user);
+  }
+
+  @Transactional
+  public Map<String, Object> retire(
+      String revisionId, int expectedVersion, LocalDate effectiveFrom, AuthenticatedUser user) {
+    if (effectiveFrom == null) throw new ApiException(422, "Provide effective_from");
+    writeLock.acquire();
+    var revision = find(revisionId, user.campusId(), true);
+    if (revision.version() != expectedVersion)
+      throw new ApiException(409, "Revision changed; reload before removing");
+    if (!revision.status().equals("PUBLISHED"))
+      throw new ApiException(409, "Only published timetables can be removed from the schedule");
+    var affected =
+        windows(
+            "WHERE revision_id=? AND (valid_until IS NULL OR valid_until>=?)",
+            revisionId,
+            effectiveFrom);
+    if (affected.isEmpty())
+      throw new ApiException(409, "Timetable is already inactive from the selected date");
+    for (var window : affected) {
+      if (window.validFrom().isBefore(effectiveFrom))
+        jdbc.update(
+            "UPDATE timetable_publications SET valid_until=? WHERE id=?",
+            effectiveFrom.minusDays(1),
+            window.id());
+      else jdbc.update("DELETE FROM timetable_publications WHERE id=?", window.id());
+    }
+    jdbc.update("UPDATE timetable_revisions SET version=version+1 WHERE id=?", revisionId);
+    audit.record(
+        user,
+        "timetable.retired",
+        revisionId,
+        Map.of("effective_from", effectiveFrom.toString(), "previous_windows", affected));
     return detail(revisionId, user);
   }
 
   private void checkConflicts(Revision revision) {
     for (var window :
         windows(
-            "WHERE scope_id<>? AND valid_from<=? AND valid_until>=?",
+            "WHERE scope_id<>? AND daterange(valid_from,valid_until,'[]')"
+                + " && daterange(?::date,?::date,'[]')",
             revision.scopeId(),
-            revision.validUntil(),
-            revision.validFrom())) {
+            revision.validFrom(),
+            revision.validUntil())) {
       var other = query("WHERE r.id=?", window.revisionId()).getFirst();
       if (!other.campusId().equals(revision.campusId())) continue;
       LocalDate from =
           window.validFrom().isAfter(revision.validFrom())
               ? window.validFrom()
               : revision.validFrom();
-      LocalDate until =
-          window.validUntil().isBefore(revision.validUntil())
-              ? window.validUntil()
-              : revision.validUntil();
+      LocalDate until = earlierEnd(window.validUntil(), revision.validUntil());
       for (var entry : revision.sessions()) {
         LocalDate first =
             from.plusDays(Math.floorMod(entry.weekday() - (from.getDayOfWeek().getValue() - 1), 7));
-        if (first.isAfter(until)) continue;
+        if (until != null && first.isAfter(until)) continue;
         if (other.sessions().stream().anyMatch(candidate -> overlaps(entry, candidate)))
           throw new ApiException(409, "Timetable conflicts with another published scope");
       }
@@ -454,24 +520,24 @@ public class TimetableService implements TimetableLookup {
     for (var entry : revision.sessions()) {
       var occupied =
           jdbc.query(
-              "SELECT starts_at,ends_at FROM occupancies WHERE room_id=? AND active AND starts_at<?"
-                  + " AND ends_at>?",
+              "SELECT starts_at,ends_at FROM occupancies WHERE room_id=? AND active"
+                  + " AND tstzrange(starts_at,ends_at,'[)')"
+                  + " && tstzrange(?::timestamptz,?::timestamptz,'[)')",
               (row, number) ->
                   List.of(
                       row.getObject("starts_at", OffsetDateTime.class).atZoneSameInstant(INDIA),
                       row.getObject("ends_at", OffsetDateTime.class).atZoneSameInstant(INDIA)),
               entry.roomId(),
-              revision.validUntil().plusDays(1).atStartOfDay(INDIA).toOffsetDateTime(),
-              revision.validFrom().atStartOfDay(INDIA).toOffsetDateTime());
+              revision.validFrom().atStartOfDay(INDIA).toOffsetDateTime(),
+              revision.validUntil() == null
+                  ? null
+                  : revision.validUntil().plusDays(1).atStartOfDay(INDIA).toOffsetDateTime());
       for (var interval : occupied) {
         LocalDate day =
             interval.getFirst().toLocalDate().isAfter(revision.validFrom())
                 ? interval.getFirst().toLocalDate()
                 : revision.validFrom();
-        LocalDate last =
-            interval.get(1).toLocalDate().isBefore(revision.validUntil())
-                ? interval.get(1).toLocalDate()
-                : revision.validUntil();
+        LocalDate last = earlierEnd(interval.get(1).toLocalDate(), revision.validUntil());
         for (; !day.isAfter(last); day = day.plusDays(1)) {
           if (day.getDayOfWeek().getValue() - 1 != entry.weekday()) continue;
           var start = day.atTime(LocalTime.parse(entry.startTime())).atZone(INDIA);
@@ -483,10 +549,16 @@ public class TimetableService implements TimetableLookup {
     }
   }
 
+  private static LocalDate earlierEnd(LocalDate left, LocalDate right) {
+    if (left == null) return right;
+    if (right == null) return left;
+    return left.isBefore(right) ? left : right;
+  }
+
   private List<Revision> active(LocalDate date) {
     return query(
         "JOIN timetable_publications p ON p.revision_id=r.id WHERE p.valid_from<=? AND"
-            + " p.valid_until>=?",
+            + " (p.valid_until IS NULL OR p.valid_until>=?)",
         date,
         date);
   }

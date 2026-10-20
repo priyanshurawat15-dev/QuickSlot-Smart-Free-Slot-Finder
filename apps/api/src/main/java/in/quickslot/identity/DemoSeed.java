@@ -1,6 +1,8 @@
 package in.quickslot.identity;
 
+import in.quickslot.demo.ReferenceTimetableSeed;
 import in.quickslot.inventory.SourceInventory;
+import in.quickslot.shared.AuthenticatedUser;
 import java.util.UUID;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -16,13 +18,19 @@ public class DemoSeed implements CommandLineRunner {
   private final AuthService auth;
   private final Environment environment;
   private final SourceInventory inventory;
+  private final ReferenceTimetableSeed referenceTimetables;
 
   public DemoSeed(
-      JdbcTemplate jdbc, AuthService auth, Environment environment, SourceInventory inventory) {
+      JdbcTemplate jdbc,
+      AuthService auth,
+      Environment environment,
+      SourceInventory inventory,
+      ReferenceTimetableSeed referenceTimetables) {
     this.jdbc = jdbc;
     this.auth = auth;
     this.environment = environment;
     this.inventory = inventory;
+    this.referenceTimetables = referenceTimetables;
   }
 
   @Override
@@ -54,5 +62,11 @@ public class DemoSeed implements CommandLineRunner {
         "INSERT INTO allocations(user_id,room_id) SELECT u.id,r.id FROM users u CROSS JOIN rooms r"
             + " WHERE u.email='coordinator@demo.quickslot.test' AND r.active AND r.source_label<>''"
             + " ON CONFLICT DO NOTHING");
+    String adminId =
+        jdbc.queryForObject(
+            "SELECT id FROM users WHERE email='admin@demo.quickslot.test'", String.class);
+    referenceTimetables.seed(
+        new AuthenticatedUser(
+            adminId, "ADMIN", "admin@demo.quickslot.test", "ADMIN", "gehu-hill-dehradun", "CS"));
   }
 }

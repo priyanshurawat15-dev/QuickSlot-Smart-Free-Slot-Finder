@@ -1,0 +1,35 @@
+.club-logo {
+  position: relative;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 80px;
+  height: 80px;
+  padding: 10px;
+  border: 3px solid #eceee9;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 4px 12px #201b1014;
+}
+
+.club-logo img {
+  position: absolute;
+  inset: 12px;
+  display: block;
+  width: calc(100% - 24px);
+  height: calc(100% - 24px);
+  object-fit: contain;
+}
+
+.club-logo > span {
+  color: #332b3a;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.club-logo-large {
+  width: 104px;
+  height: 104px;
+  padding: 12px;
+  border-radius: 50%;
+}

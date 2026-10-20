@@ -1,0 +1,360 @@
+.container {
+  width: min(1320px, calc(100% - 64px));
+  margin-inline: auto;
+}
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+main {
+  flex: 1;
+  outline: none;
+}
+.page {
+  padding-top: 28px;
+  padding-bottom: 48px;
+}
+.institution-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  color: #fff;
+  background: rgba(40, 43, 47, 0.94);
+  backdrop-filter: blur(20px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 3px 18px rgba(25, 36, 48, 0.12);
+}
+.header-shell {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 70px;
+}
+.institution-masthead {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-shrink: 0;
+}
+.university-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #fff;
+}
+.university-wordmark img {
+  display: block;
+  width: 46px;
+  height: 46px;
+}
+.university-wordmark > span {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+.university-wordmark > span > span {
+  display: block;
+}
+.navigation-bar {
+  flex: 1;
+  min-width: 0;
+}
+.navigation {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  padding-block: 10px;
+}
+.navigation > a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 11px;
+  color: #edf0f4;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  white-space: nowrap;
+  min-height: 40px;
+}
+.navigation > a.active {
+  color: #fff;
+  background: #5b19d1;
+  border-color: #8a5ce0;
+}
+.navigation > a:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.navigation .staff-login {
+  gap: 6px;
+  margin-left: 8px;
+  border-color: #7a858e;
+}
+.user-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid #687078;
+  color: #fff;
+}
+.user-nav > span {
+  font-size: 14px;
+  max-width: 110px;
+  overflow-wrap: anywhere;
+}
+.user-nav small {
+  display: block;
+  color: #d5dce3;
+  font-size: 14px;
+  margin-top: 3px;
+}
+.institution-header .icon-button {
+  color: #fff;
+}
+.institution-header .icon-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.institution-header :focus-visible,
+.site-footer :focus-visible {
+  outline-color: #e1d7ea;
+}
+.institution-masthead .mobile-toggle {
+  display: none;
+  color: #fff;
+  border: 1px solid #78828b;
+  border-radius: 7px;
+}
+.site-footer {
+  margin-top: auto;
+  color: #e1e6eb;
+  background: rgba(40, 43, 47, 0.96);
+  backdrop-filter: blur(20px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
+  border-top: 1px solid #626b73;
+  box-shadow: 0 -4px 22px rgba(25, 36, 48, 0.04);
+}
+.footer-inner {
+  display: grid;
+  grid-template-columns: 1.15fr 0.75fr 1.1fr 0.9fr;
+  gap: 44px;
+  padding-block: 36px 32px;
+  font-size: 14px;
+}
+.footer-title {
+  display: inline-block;
+  color: #fff;
+  font-size: 29px;
+  letter-spacing: -0.045em;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.footer-inner h2 {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0;
+  margin-bottom: 13px;
+}
+.footer-inner p {
+  color: #d5dce3;
+  font-size: 14px;
+  max-width: 35ch;
+  line-height: 1.8;
+}
+.footer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+.footer-links h2 {
+  margin-bottom: 3px;
+}
+.footer-inner a:not(.footer-title):hover {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.footer-guidance > a,
+.footer-university > a {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: #e2efe5;
+  margin-top: 13px;
+}
+.footer-university > a {
+  margin-top: 0;
+}
+.footer-bottom {
+  border-top: 1px solid #59616a;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding-block: 17px;
+  font-size: 14px;
+  color: #d5dce3;
+}
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding-bottom: 22px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.page-heading p {
+  margin-top: 7px;
+  max-width: 80ch;
+  font-size: 15px;
+}
+.narrow-page {
+  max-width: 860px;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15px;
+  margin-bottom: 22px;
+  color: var(--muted);
+}
+.header-error {
+  padding: 12px 30px;
+  color: #823d3d;
+  background: #f7eeee;
+}
+@media (max-width: 1180px) {
+  .header-shell {
+    display: block;
+    min-height: 0;
+  }
+  .institution-masthead {
+    min-height: 66px;
+    width: 100%;
+  }
+  .institution-masthead .mobile-toggle {
+    display: flex;
+    margin-left: auto;
+  }
+  .navigation {
+    display: none;
+    padding-block: 0 14px;
+    justify-content: flex-start;
+    gap: 5px;
+  }
+  .navigation.open {
+    display: flex;
+  }
+  .navigation > a {
+    font-size: 15px;
+  }
+  .navigation .staff-login {
+    margin-left: 0;
+  }
+  .user-nav {
+    margin-left: auto;
+  }
+  .footer-inner {
+    gap: 28px;
+    grid-template-columns: 1.1fr 0.8fr 1.1fr;
+  }
+  .footer-university {
+    grid-column: 1/-1;
+    border-top: 1px solid #59616a;
+    padding-top: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .footer-university h2 {
+    margin: 0;
+  }
+}
+@media (max-width: 680px) {
+  .container {
+    width: calc(100% - 32px);
+  }
+  .institution-masthead {
+    min-height: 64px;
+    gap: 12px;
+  }
+  .university-wordmark {
+    gap: 8px;
+  }
+  .university-wordmark img {
+    width: 40px;
+    height: 40px;
+  }
+  .university-wordmark > span {
+    font-size: 18px;
+  }
+  .navigation.open {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
+  }
+  .navigation > a {
+    justify-content: flex-start;
+    padding: 11px 12px;
+  }
+  .user-nav {
+    margin-left: 0;
+    border-left: 0;
+    border-top: 1px solid #687078;
+    padding: 12px;
+    margin-top: 5px;
+    justify-content: space-between;
+  }
+  .page {
+    padding-top: 22px;
+    padding-bottom: 36px;
+  }
+  h1 {
+    font-size: 28px;
+  }
+  .page-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 20px;
+    margin-bottom: 22px;
+  }
+  .footer-inner {
+    grid-template-columns: 1fr 1fr;
+    gap: 25px 22px;
+    padding-block: 28px;
+  }
+  .footer-brand,
+  .footer-university {
+    grid-column: 1/-1;
+  }
+  .footer-brand p {
+    max-width: 48ch;
+  }
+  .footer-university {
+    display: block;
+    padding-top: 18px;
+  }
+  .footer-university h2 {
+    margin-bottom: 10px;
+  }
+  .footer-bottom {
+    flex-direction: column;
+    gap: 7px;
+    line-height: 1.6;
+  }
+}

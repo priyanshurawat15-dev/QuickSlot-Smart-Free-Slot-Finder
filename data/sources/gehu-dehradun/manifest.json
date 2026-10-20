@@ -1,0 +1,108 @@
+{
+  "collected_at_utc": "2026-10-19T18:37:43.309663+00:00",
+  "campus_claim": "Graphic Era Hill University, Dehradun",
+  "affiliation": "Department-branded host; no inbound gehu.ac.in link verified. Administrator must confirm.",
+  "index": {
+    "url": "https://btechcsegehu.in/",
+    "tls_verified": false,
+    "sha256": "6c89aadf742c80cc4aca3a477d5ae6ee10a9a82a46ec6537044c6629668836ab"
+  },
+  "notes": [
+    "No records are published to the application.",
+    "Upload month is not an effective date. Inspect document contents.",
+    "TLS bypass is per request, explicitly enabled, and recorded; no global TLS settings change.",
+    "This collection does not establish campus-wide room coverage."
+  ],
+  "documents": [
+    {
+      "source_url": "http://btechcsegehu.in/wp-content/uploads/2026/10/B.Tech-C.S.E-III-Sem-TT-3.pdf",
+      "requested_url": "https://btechcsegehu.in/wp-content/uploads/2026/10/B.Tech-C.S.E-III-Sem-TT-3.pdf",
+      "discovered_on": "https://btechcsegehu.in/",
+      "category": "class_timetable_candidate",
+      "review_status": "unreviewed",
+      "scope": "CSE; program and semester require document review",
+      "file": "B.Tech-C.S.E-III-Sem-TT-3.pdf",
+      "bytes": 489443,
+      "sha256": "78ba54f0cac34ededfd07d435e95eff746942fbfed1158bd5e03b8d77e56ed38",
+      "tls_verified": false,
+      "resolved_url": "https://btechcsegehu.in/wp-content/uploads/2026/10/B.Tech-C.S.E-III-Sem-TT-3.pdf",
+      "pages": 18,
+      "first_page_excerpt": "DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING CLASS TIME TABLE Course Name: B.Tech C.S.E Semester: III Section: A w. e. f.: 13-07-2026 DAY / TIME 08:00 - 08:55 08:55 - 09:50 10:10 - 11:05 11:05 - 12:00 12:00 - 12:55 12:55 - 01:50 02:10 - 03:05 03:05 - 04:00 04:00 - 04:55 04:55 - 05:50 MON TCS 307 124 (LT) ELECTIVE TCS 351 TCS 392 TCS 346 PCS 307 009 (LAB) TCS 302 (G1) 529(Audi) TMA 316 206 (LT) PCS 302 209 (LAB) TUE PCS 307 002-B (LAB) PCS 308 (G1) LOGIC LAB (BASEMENT) TCS 302 (G1) 529(Audi) TCS 302 (G2) 106 (LT) TMA 316 206 (LT) CEC 529(Audi) W"
+    },
+    {
+      "source_url": "http://btechcsegehu.in/wp-content/uploads/2026/10/B.Tech-C.S.E-V-TT-2.pdf",
+      "requested_url": "https://btechcsegehu.in/wp-content/uploads/2026/10/B.Tech-C.S.E-V-TT-2.pdf",
+      "discovered_on": "https://btechcsegehu.in/",
+      "category": "class_timetable_candidate",
+      "review_status": "unreviewed",
+      "scope": "CSE; program and semester require document review",
+      "file": "B.Tech-C.S.E-V-TT-2.pdf",
+      "bytes": 498338,
+      "sha256": "dfa7a0f769f07f6caca7ec76c9723959163dc8ed54ff2a87c607bd8786b176a5",
+      "tls_verified": false,
+      "resolved_url": "https://btechcsegehu.in/wp-content/uploads/2026/10/B.Tech-C.S.E-V-TT-2.pdf",
+      "pages": 18,
+      "first_page_excerpt": "DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING CLASS TIME TABLE Course Name: B.Tech C.S.E Semester: V Section: A1 w. e. f.: 13-07-2026 DAY / TIME 08:00 - 08:55 08:55 - 09:50 10:10 - 11:05 11:05 - 12:00 12:00 - 12:55 12:55 - 01:50 02:10 - 03:05 03:05 - 04:00 04:00 - 04:55 04:55 - 05:50 MON XCS 501 (NK) 017 (CR) TCS 504 224 (LT) ELECTIVE TCS 584 TCS 595 TCS 597E TCS 509 TCS 503 124 (LT) CEC (G1) 106 (LT) TUE TCS 504 224 (LT) TCS 502 106 (LT) PCS 502 302-A (LAB) PCS 514 102-B (LAB) WED PCS 503 002-A (LAB) XCS 501 (RR) 017 (CR) TCS 502 106 (LT) ELECT"
+    },
+    {
+      "source_url": "http://btechcsegehu.in/wp-content/uploads/2026/10/B.Tech-C.S.E-VII-TT-1.pdf",
+      "requested_url": "https://btechcsegehu.in/wp-content/uploads/2026/10/B.Tech-C.S.E-VII-TT-1.pdf",
+      "discovered_on": "https://btechcsegehu.in/",
+      "category": "class_timetable_candidate",
+      "review_status": "unreviewed",
+      "scope": "CSE; program and semester require document review",
+      "file": "B.Tech-C.S.E-VII-TT-1.pdf",
+      "bytes": 468709,
+      "sha256": "cc2e0bf462fc7192be1b78af4518689897325f97fbc53d6007f1fee197c6c3bc",
+      "tls_verified": false,
+      "resolved_url": "https://btechcsegehu.in/wp-content/uploads/2026/10/B.Tech-C.S.E-VII-TT-1.pdf",
+      "pages": 24,
+      "first_page_excerpt": "DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING CLASS TIME TABLE Course Name: B.Tech C.S.E Semester: VII Section: A1 w. e. f.: 13-07-2026 DAY / TIME 08:00 - 08:55 08:55 - 09:50 10:10 - 11:05 11:05 - 12:00 12:00 - 12:55 12:55 - 01:50 02:10 - 03:05 03:05 - 04:00 04:00 - 04:55 04:55 - 05:50 MON CSP 701 MAJOR PROJECT PHASE 1 PLACEMENTS/ PDP TCS 726 224 (LT) TCS 756 ILEARN TUE CSP 701 MAJOR PROJECT PHASE 1 PLACEMENTS/ PDP TCS 726 224 (LT) TCS 756 ILEARN WED CSP 701 MAJOR PROJECT PHASE 1 PLACEMENTS/ PDP TCS 704 224 (LT) TCS 756 ILEARN THU CSP 701 MAJOR "
+    },
+    {
+      "source_url": "http://btechcsegehu.in/wp-content/uploads/2026/10/Diploma-CS-TT-2.pdf",
+      "requested_url": "https://btechcsegehu.in/wp-content/uploads/2026/10/Diploma-CS-TT-2.pdf",
+      "discovered_on": "https://btechcsegehu.in/",
+      "category": "class_timetable_candidate",
+      "review_status": "unreviewed",
+      "scope": "CSE; program and semester require document review",
+      "file": "Diploma-CS-TT-2.pdf",
+      "bytes": 143113,
+      "sha256": "47175ea7ed9c5abf8d20b356e40c172090ccabe036f4388423f156c483e54f4c",
+      "tls_verified": false,
+      "resolved_url": "https://btechcsegehu.in/wp-content/uploads/2026/10/Diploma-CS-TT-2.pdf",
+      "pages": 2,
+      "first_page_excerpt": "DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING CLASS TIME TABLE Course Name: Diploma C.S Semester: III w. e. f.: 13-07-2026 DAY / TIME 08:00 - 08:55 08:55 - 09:50 10:10 - 11:05 11:05 - 12:00 12:00 - 12:55 12:55 - 01:50 02:10 - 03:05 03:05 - 04:00 04:00 - 04:55 04:55 - 05:50 MON DTCS 302 107 (CR) DTCS 301 107 (CR) DTMA 305 RR-E DTCS 303 107 (CR) TUE DTCS 304 107 (CR) DTCS 303 107 (CR) DTMA 305 107 (CR) DPCS 301 302-A (LAB) DTCS 301 107 (CR) WED DPCS 303 302-B (LAB) DTMA 305 107 (CR) DTCS 302 107 (CR) THU DPCS 301 002-A (LAB) DTCS 303 107 (CR) DTCS"
+    },
+    {
+      "source_url": "http://btechcsegehu.in/wp-content/uploads/2026/10/M.Tech-C.S.E-1st-TT-2.pdf",
+      "requested_url": "https://btechcsegehu.in/wp-content/uploads/2026/10/M.Tech-C.S.E-1st-TT-2.pdf",
+      "discovered_on": "https://btechcsegehu.in/",
+      "category": "class_timetable_candidate",
+      "review_status": "unreviewed",
+      "scope": "CSE; program and semester require document review",
+      "file": "M.Tech-C.S.E-1st-TT-2.pdf",
+      "bytes": 136791,
+      "sha256": "a69dc372a7c459fc9580184fcc331a105e7548dceeb3f5d2ba563a3aabe98469",
+      "tls_verified": false,
+      "resolved_url": "https://btechcsegehu.in/wp-content/uploads/2026/10/M.Tech-C.S.E-1st-TT-2.pdf",
+      "pages": 1,
+      "first_page_excerpt": "DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING CLASS TIME TABLE Course Name: M.Tech C.S.E Semester: I w. e. f.: 17-08-2026 DAY / TIME 08:00 - 08:55 08:55 - 09:50 10:10 - 11:05 11:05 - 12:00 12:00 - 12:55 12:55 - 01:50 02:10 - 03:05 03:05 - 04:00 04:00 - 04:55 04:55 - 05:50 MON MCS 144 123 (CR) MCS 141 RR-G MCS 124 RR-G MCS 165 302-B (LAB) TUE MCS 141 116 (CR) MCS 143 114 (CR) MCS 132 RR-G WED MCS 124 116 (CR) MCS 143 RR-G MCS 132 RR-G THU MCS 144 123 (CR) MCS 143 RR-G MCS 132 123 (CR) FRI MCS 141 113 (CR) MCS 124 113 (CR) MCS 144 RR-G SAT SUBJECT"
+    },
+    {
+      "source_url": "http://btechcsegehu.in/wp-content/uploads/2026/10/M.Tech-C.S.E-3rd-TT-2.pdf",
+      "requested_url": "https://btechcsegehu.in/wp-content/uploads/2026/10/M.Tech-C.S.E-3rd-TT-2.pdf",
+      "discovered_on": "https://btechcsegehu.in/",
+      "category": "class_timetable_candidate",
+      "review_status": "unreviewed",
+      "scope": "CSE; program and semester require document review",
+      "file": "M.Tech-C.S.E-3rd-TT-2.pdf",
+      "bytes": 124906,
+      "sha256": "66480a19a8f44ba04e7a8475b0da9a6247184bcdfaf83d4d8c98ada7d9d3a00d",
+      "tls_verified": false,
+      "resolved_url": "https://btechcsegehu.in/wp-content/uploads/2026/10/M.Tech-C.S.E-3rd-TT-2.pdf",
+      "pages": 1,
+      "first_page_excerpt": "DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING CLASS TIME TABLE Course Name: M.Tech C.S.E Semester: III w. e. f.: 13-07-2026 DAY / TIME 08:00 - 08:55 08:55 - 09:50 10:10 - 11:05 11:05 - 12:00 12:00 - 12:55 12:55 - 01:50 02:10 - 03:05 03:05 - 04:00 04:00 - 04:55 04:55 - 05:50 MON Dissertation-Phase I TUE MCS 301 113 (CR) Dissertation-Phase I WED MCS 301 113 (CR) Dissertation-Phase I THU MCS 301 113 (CR) Dissertation-Phase I FRI Dissertation-Phase I SUBJECT CODE SUBJECT NAME FACULTY NAME MCS 301 Soft Computing Dr. Prateek Srivastava MCS 300 Dissert"
+    }
+  ]
+}

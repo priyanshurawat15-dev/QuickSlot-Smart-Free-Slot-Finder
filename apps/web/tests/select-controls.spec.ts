@@ -19,6 +19,9 @@ test("room filters and hour choices support keyboard, touch and reset", async ({
   await slot.focus();
   await slot.press("ArrowDown");
   await expect(page.getByRole("listbox")).toBeVisible();
+  await expect(
+    page.getByRole("option", { name: "10–11", exact: true }),
+  ).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(slot).toHaveText("11–12");
@@ -56,6 +59,8 @@ test("a required room stays empty until selected", async ({
   await signIn(page, "faculty", "/requests/new");
   const purpose = `Dropdown selection verification ${Date.now()}`;
   await page.getByLabel("Date", { exact: true }).fill("2027-01-12");
+  await page.getByRole("combobox", { name: "Booking reason" }).click();
+  await page.getByRole("option", { name: "Other", exact: true }).click();
   await page.getByLabel("What is the room for?").fill(purpose);
   await page.getByLabel("Expected attendance").fill("10");
   let submitted = false;

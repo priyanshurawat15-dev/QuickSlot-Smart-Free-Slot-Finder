@@ -161,6 +161,12 @@ export function Requests({ review = false }: { review?: boolean }) {
                     <p>
                       {request.requester_name} · {request.attendance} people
                     </p>
+                    <p>
+                      {request.reason_category
+                        ?.toLowerCase()
+                        .replaceAll("_", " ")}
+                      {request.club_name ? ` · ${request.club_name}` : ""}
+                    </p>
                   </div>
                   <Status value={request.status} />
                 </div>

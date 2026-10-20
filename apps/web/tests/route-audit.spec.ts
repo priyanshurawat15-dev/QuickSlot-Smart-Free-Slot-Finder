@@ -64,6 +64,8 @@ test("all roles can complete their real request and administration screens", asy
   ).toBeVisible();
   await inspectPage(page, info, "request-form");
   const purpose = `Browser workflow verification ${Date.now()}`;
+  await page.getByRole("combobox", { name: "Booking reason" }).click();
+  await page.getByRole("option", { name: "Other", exact: true }).click();
   await page.getByLabel("What is the room for?").fill(purpose);
   await page.getByLabel("Expected attendance").fill("5");
   await page.getByRole("button", { name: "Send request" }).click();
@@ -126,6 +128,7 @@ test("all roles can complete their real request and administration screens", asy
   await expect(
     page.getByRole("heading", { name: "Timetables.", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".timetable-file-card").first()).toBeVisible();
   await inspectPage(page, info, "timetable-register");
   await page.goto("/admin/rooms");
   await expect(

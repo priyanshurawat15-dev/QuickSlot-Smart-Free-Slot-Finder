@@ -7,6 +7,7 @@ import type {
   Session,
   ImportSession,
   ImportVersion,
+  RequestEligibility,
 } from "./types";
 let csrfToken = "";
 export class ApiError extends Error {
@@ -113,7 +114,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
-  versions: () => send<ImportVersion[]>("/timetables"),
+  versions: (includeArchived = false) =>
+    send<ImportVersion[]>(
+      `/timetables${includeArchived ? "?include_archived=true" : ""}`,
+    ),
+  deleteTimetable: (id: string, expectedRevision: number) =>
+    send<ImportVersion>(
+      `/timetables/${id}?expected_revision=${expectedRevision}`,
+      { method: "DELETE" },
+    ),
+  requestEligibility: () => send<RequestEligibility>("/requests/eligibility"),
   version: (id: string) => send<ImportVersion>(`/timetables/${id}`),
   upload: (
     file: File,

@@ -17,6 +17,7 @@ interface Props {
   rooms: Room[];
   faculty: { id: string; name: string }[];
   editable: boolean;
+  initialRow?: number;
   update(index: number, patch: Partial<ImportSession>): void;
   onRemove(index: number): void;
 }
@@ -27,8 +28,9 @@ export function SessionReviewTable({
   editable,
   update,
   onRemove,
+  initialRow = 0,
 }: Props) {
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(() => Math.floor(initialRow / 25));
   const [pageSize, setPageSize] = useState(25);
   const lastPage = Math.max(0, Math.ceil(sessions.length / pageSize) - 1);
   const currentPage = Math.min(page, lastPage);

@@ -58,6 +58,9 @@ export interface BookingRequest {
   start_time: string;
   end_time: string;
   purpose: string;
+  reason_category: ReasonCategory;
+  club_id: string | null;
+  club_name: string | null;
   attendance: number;
   status: RequestStatus;
   requester_name: string;
@@ -69,7 +72,17 @@ export interface RequestInput {
   start_time: string;
   end_time: string;
   purpose: string;
+  reason_category: ReasonCategory;
+  club_id?: string | null;
   attendance: number;
+}
+export type ReasonCategory =
+  "EXTRA_CLASS" | "WORKSHOP" | "HACKATHON" | "CLUB_MEETING" | "OTHER";
+export interface RequestEligibility {
+  can_request: boolean;
+  club_required: boolean;
+  clubs: { id: string; slug: string; name: string }[];
+  reason_categories: { value: ReasonCategory; label: string }[];
 }
 export interface ScheduleSession {
   day_of_week: number;
@@ -104,6 +117,7 @@ export interface ImportVersion {
   id: string;
   scope_key: string;
   status: string;
+  archived_at: string | null;
   valid_from: string;
   valid_until: string | null;
   filename: string;

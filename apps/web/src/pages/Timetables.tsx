@@ -1,17 +1,14 @@
+import { useEffect, useRef, useState } from "react";
+import { ArrowUpRight, Check, ChevronLeft } from "lucide-react";
+import { TimetableUpload } from "../features/timetables/TimetableUpload";
+import { UploadedTimetables } from "../features/timetables/UploadedTimetables";
+import { RoomMappingReview } from "../features/timetables/RoomMappingReview";
 import {
   PublicationSchedule,
   timetableValidity,
 } from "../features/timetables/PublicationSchedule";
 import { SessionReviewTable } from "../features/timetables/SessionReviewTable";
 import { IssueSummary } from "../features/timetables/IssueSummary";
-import { useEffect, useState, type FormEvent } from "react";
-import {
-  FileText,
-  Upload,
-  ArrowUpRight,
-  Check,
-  ChevronLeft,
-} from "lucide-react";
 import { FacultyDirectory } from "../features/timetables/FacultyDirectory";
 import { api } from "../lib/api";
 import type { ImportSession, ImportVersion, Room } from "../lib/types";
@@ -24,14 +21,16 @@ import {
   PageHeading,
   Status,
 } from "../components/ui";
+import "../features/timetables/timetables.css";
 
-function versionStatus(version: ImportVersion) {
-  const hasScheduledDates = version.publication_windows.some(
-    (window) => !window.valid_until || window.valid_until >= campusToday(),
+function isCurrent(version: ImportVersion) {
+  return (
+    !version.archived_at &&
+    (version.status !== "PUBLISHED" ||
+      version.publication_windows.some(
+        (window) => !window.valid_until || window.valid_until >= campusToday(),
+      ))
   );
-  return version.status === "PUBLISHED" && !hasScheduledDates
-    ? "Historical"
-    : version.status;
 }
 
 export function Timetables() {
@@ -43,18 +42,22 @@ export function Timetables() {
   const [coverage, setCoverage] = useState<string[]>([]);
   const [acknowledge, setAcknowledge] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [scope, setScope] = useState("");
-  const [from, setFrom] = useState(campusToday());
-  const [until, setUntil] = useState("");
-  const [hasEndDate, setHasEndDate] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [reviewRow, setReviewRow] = useState(0);
+  const [focusSequence, setFocusSequence] = useState(0);
+  const advanced = useRef<HTMLDetailsElement>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [success, setSuccess] = useState("");
+  const current = versions.filter(isCurrent);
+  const history = versions.filter((version) => !isCurrent(version));
+  const editable =
+    !!selected && !selected.archived_at && selected.status !== "PUBLISHED";
+
   const load = async () => {
     const [list, inventory, people] = await Promise.all([
-      api.versions(),
+      api.versions(true),
       api.rooms(),
       api.faculty(),
     ]);
@@ -67,47 +70,64 @@ export function Timetables() {
       .catch(setError)
       .finally(() => setLoading(false));
   }, []);
-  const open = async (id: string) => {
-    setBusy(true);
-    setError(null);
+
+  const select = (detail: ImportVersion) => {
+    setSelected(detail);
+    setSessions(detail.sessions || []);
+    setCoverage(detail.coverage_room_ids || []);
     setAcknowledge(false);
-    try {
-      const detail = await api.version(id);
-      setSelected(detail);
-      setSuccess("");
-      setDirty(false);
-      setSessions(detail.sessions || []);
-      setCoverage(detail.coverage_room_ids || []);
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
+    setDirty(false);
+    setAdvancedOpen(false);
+    setReviewRow(0);
+    setFocusSequence(0);
   };
-  const upload = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!file) return;
+  const open = async (id: string) => {
     setBusy(true);
     setError(null);
     setSuccess("");
     try {
-      const detail = await api.upload(
-        file,
-        scope.trim(),
-        from,
-        hasEndDate ? until : null,
+      select(await api.version(id));
+    } catch (failure) {
+      setError(failure);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const upload = async (
+    file: File,
+    scope: string,
+    from: string,
+    until: string | null,
+  ) => {
+    setBusy(true);
+    setError(null);
+    setSuccess("");
+    try {
+      select(await api.upload(file, scope, from, until));
+      setSuccess(
+        "Timetable uploaded. Check the matched rooms and flagged rows.",
       );
       await load();
-      setSelected(detail);
-      setDirty(false);
-      setSessions(detail.sessions || []);
-      setCoverage(detail.coverage_room_ids || []);
-      setAcknowledge(false);
+    } catch (failure) {
+      setError(failure);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const deleteTimetable = async (version: ImportVersion) => {
+    setBusy(true);
+    setError(null);
+    setSuccess("");
+    try {
+      await api.deleteTimetable(version.id, version.version);
       setSuccess(
-        "File uploaded as a draft. Review every extracted session before publication.",
+        "Timetable deleted. Its active classes and room mappings have been removed.",
       );
-    } catch (e) {
-      setError(e);
+      await load();
+      return true;
+    } catch (failure) {
+      setError(failure);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -116,6 +136,7 @@ export function Timetables() {
     if (!selected) return;
     setBusy(true);
     setError(null);
+    setSuccess("");
     try {
       const result = await api.review(
         selected.id,
@@ -125,12 +146,12 @@ export function Timetables() {
         selected.version,
       );
       setSelected(result);
-      setDirty(false);
       setSessions(result.sessions || []);
-      setSuccess("Review saved. Check the remaining issues before publishing.");
+      setDirty(false);
+      setSuccess("Review saved. The timetable is ready to publish.");
       await load();
-    } catch (e) {
-      setError(e);
+    } catch (failure) {
+      setError(failure);
     } finally {
       setBusy(false);
     }
@@ -139,28 +160,19 @@ export function Timetables() {
     if (!selected) return;
     setBusy(true);
     setError(null);
+    setSuccess("");
     try {
-      const result = await api.publish(selected.id, selected.version);
-      setSelected(result);
+      setSelected(await api.publish(selected.id, selected.version));
       setDirty(false);
       setSuccess(
-        "Timetable published. The prior version is retained in history.",
+        "Timetable published. Room availability now includes these classes.",
       );
       await load();
-    } catch (e) {
-      setError(e);
+    } catch (failure) {
+      setError(failure);
     } finally {
       setBusy(false);
     }
-  };
-  const update = (index: number, patch: Partial<ImportSession>) => {
-    setSessions((current) =>
-      current.map((session, i) =>
-        i === index ? { ...session, ...patch } : session,
-      ),
-    );
-    setAcknowledge(false);
-    setDirty(true);
   };
   const retire = async (removeFrom: string) => {
     if (!selected) return false;
@@ -168,31 +180,47 @@ export function Timetables() {
     setError(null);
     setSuccess("");
     try {
-      const result = await api.retire(
-        selected.id,
-        selected.version,
-        removeFrom,
-      );
-      setSelected(result);
+      setSelected(await api.retire(selected.id, selected.version, removeFrom));
       setSuccess(
-        `Timetable removed from ${removeFrom} onward. Earlier scheduled dates and the original file remain in history.`,
+        `Timetable removed from ${removeFrom} onward. Earlier dates remain in history.`,
       );
       await load();
       return true;
-    } catch (e) {
-      setError(e);
+    } catch (failure) {
+      setError(failure);
       return false;
     } finally {
       setBusy(false);
     }
   };
+  const changed = () => {
+    setAcknowledge(false);
+    setDirty(true);
+  };
+  const update = (index: number, patch: Partial<ImportSession>) => {
+    setSessions((current) =>
+      current.map((session, position) =>
+        position === index ? { ...session, ...patch } : session,
+      ),
+    );
+    changed();
+  };
+  const reviewMapping = (index: number) => {
+    setReviewRow(index);
+    setFocusSequence((sequence) => sequence + 1);
+    setAdvancedOpen(true);
+    requestAnimationFrame(() =>
+      advanced.current?.scrollIntoView({ block: "start" }),
+    );
+  };
+
   return (
-    <div className="container page">
+    <div className="container page timetable-page">
       <PageHeading
         title="Timetables."
-        text="Upload, review and publish timetable versions."
+        text="Upload class schedules and check their room mappings."
       />
-      {!!error && <ErrorText error={error} />}{" "}
+      {!!error && <ErrorText error={error} />}
       {success && <Notice tone="success">{success}</Notice>}
       {selected ? (
         <>
@@ -202,6 +230,7 @@ export function Timetables() {
             onClick={() => {
               setSelected(null);
               setSuccess("");
+              setError(null);
             }}
           >
             <ChevronLeft size={16} />
@@ -215,269 +244,223 @@ export function Timetables() {
                 {timetableValidity(selected.valid_from, selected.valid_until)}
               </p>
             </div>
-            <Status value={versionStatus(selected)} />
+            <Status
+              value={
+                selected.archived_at
+                  ? "Deleted"
+                  : isCurrent(selected)
+                    ? selected.status
+                    : "Historical"
+              }
+            />
           </div>
-          <a
-            className="text-link source-download"
-            href={`/api/timetables/${selected.id}/source`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Download original source <ArrowUpRight size={15} />
-          </a>
-          <Notice>
-            Check the original file alongside these sessions. Scope identifies
-            the course, semester and section set this version replaces. Other
-            timetable scopes remain active.
-          </Notice>
-          {selected.status === "PUBLISHED" && (
-            <PublicationSchedule
-              key={`publication-${selected.id}`}
-              version={selected}
-              busy={busy}
-              onRetire={retire}
-            />
+          {selected.archived_at && (
+            <Notice>
+              This timetable is in history. It no longer supplies active classes
+              or room mappings.
+            </Notice>
           )}
-          {!!selected.issues?.length && (
-            <IssueSummary
-              key={`issues-${selected.id}`}
-              issues={selected.issues}
-              sessions={sessions}
-            />
-          )}
-          <FacultyDirectory
-            faculty={faculty}
-            disabled={busy}
-            onCreated={(person) =>
-              setFaculty((current) => [...current, person])
-            }
-          />
-          <SessionReviewTable
-            key={`sessions-${selected.id}`}
+          <RoomMappingReview
+            key={`mapping-${selected.id}`}
             sessions={sessions}
             rooms={rooms}
-            faculty={faculty}
-            editable={selected.status !== "PUBLISHED" && !busy}
-            update={update}
-            onRemove={(index) => {
-              setSessions((current) => current.filter((_, i) => i !== index));
-              setAcknowledge(false);
-              setDirty(true);
-            }}
+            busy={busy}
+            onReview={reviewMapping}
           />
-          {selected.status !== "PUBLISHED" && (
-            <>
-              <button
-                className="button button-outline button-small"
-                disabled={busy}
-                onClick={() => {
-                  setSessions((value) => [
-                    ...value,
-                    {
-                      weekday: 0,
-                      start_time: "09:00",
-                      end_time: "10:00",
-                      room_id: null,
-                      subject: "",
-                      faculty_ids: [],
-                    },
-                  ]);
-                  setAcknowledge(false);
-                  setDirty(true);
-                }}
-              >
-                Add session
-              </button>
-              <section className="coverage-review">
-                <h3>Rooms with complete schedule coverage</h3>
-                <p>
-                  Select a room only if all courses using it are covered by
-                  verified schedules. Seeing a room in this file is not enough.
-                </p>
-                <div className="coverage-checks">
-                  {rooms.map((room) => (
-                    <label key={room.id}>
-                      <input
-                        type="checkbox"
-                        disabled={busy}
-                        checked={coverage.includes(room.id)}
-                        onChange={(e) => {
-                          setCoverage((current) =>
-                            e.target.checked
-                              ? [...current, room.id]
-                              : current.filter((id) => id !== room.id),
-                          );
-                          setAcknowledge(false);
-                          setDirty(true);
-                        }}
-                      />
-                      {room.code}
-                      <small>{room.building}</small>
-                    </label>
-                  ))}
-                </div>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    disabled={busy}
-                    checked={acknowledge}
-                    onChange={(e) => setAcknowledge(e.target.checked)}
-                  />
-                  I checked the source, session mappings, dates and coverage
-                  claims.
-                </label>
-                <div className="form-actions">
-                  <button
-                    className="button button-outline"
-                    disabled={busy || !acknowledge}
-                    onClick={review}
-                  >
-                    <Check size={17} />
-                    Save verified review
-                  </button>
-                  <button
-                    className="button button-primary"
-                    disabled={
-                      busy ||
-                      selected.status !== "REVIEWED" ||
-                      dirty ||
-                      !!selected.issues?.length ||
-                      !acknowledge
-                    }
-                    onClick={publish}
-                  >
-                    Publish timetable <ArrowUpRight size={17} />
-                  </button>
-                </div>
-              </section>
-            </>
-          )}
-        </>
-      ) : (
-        <div className="admin-grid">
-          <section className="upload-sheet">
-            <Upload size={26} />
-            <h2>Upload a timetable</h2>
-            <p>
-              Keep the old version as history. Publish its replacement from the
-              right effective date.
-            </p>
-            <a
-              className="text-link"
-              href="/templates/timetable-template.docx"
-              download
-            >
-              Download Word template
-            </a>
-            <form className="stack-form" onSubmit={upload}>
-              <label>
-                PDF or editable Word timetable
-                <input
-                  required
-                  disabled={busy}
-                  type="file"
-                  accept=".pdf,.docx"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                />
-              </label>
-              <label>
-                Replacement scope
-                <input
-                  required
-                  disabled={busy}
-                  placeholder="e.g. CSE / semester V / all sections"
-                  value={scope}
-                  onChange={(e) => setScope(e.target.value)}
-                />
-              </label>
+          {editable && (
+            <section className="mapping-confirmation">
               <label className="checkbox-label">
                 <input
                   type="checkbox"
-                  checked={hasEndDate}
                   disabled={busy}
-                  onChange={(e) => setHasEndDate(e.target.checked)}
+                  checked={acknowledge}
+                  onChange={(event) => setAcknowledge(event.target.checked)}
                 />
-                Set an end date
+                I checked the source timetable, room mappings and class timings.
               </label>
-              <div className="form-columns">
-                <label>
-                  Effective from
-                  <input
-                    required
-                    disabled={busy}
-                    type="date"
-                    value={from}
-                    onChange={(e) => setFrom(e.target.value)}
-                  />
-                </label>
-                {hasEndDate && (
-                  <label>
-                    Valid until
-                    <input
-                      required
-                      disabled={busy}
-                      min={from}
-                      type="date"
-                      value={until}
-                      onChange={(e) => setUntil(e.target.value)}
-                    />
-                  </label>
-                )}
+              <div className="form-actions">
+                <button
+                  className="button button-outline"
+                  disabled={busy || !acknowledge}
+                  onClick={review}
+                >
+                  <Check size={17} />
+                  Save verified review
+                </button>
+                <button
+                  className="button button-primary"
+                  disabled={
+                    busy ||
+                    selected.status !== "REVIEWED" ||
+                    dirty ||
+                    !!selected.issues?.length ||
+                    !acknowledge
+                  }
+                  onClick={publish}
+                >
+                  Publish timetable
+                  <ArrowUpRight size={17} />
+                </button>
               </div>
-              {!hasEndDate && (
-                <p>
-                  No end date. The published timetable stays active until an
-                  administrator removes it or publishes a replacement.
-                </p>
+            </section>
+          )}
+          <details
+            className="timetable-disclosure"
+            ref={advanced}
+            open={advancedOpen}
+            onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
+          >
+            <summary>Advanced session editor</summary>
+            <div className="timetable-disclosure-content">
+              <a
+                className="text-link source-download"
+                href={`/api/timetables/${selected.id}/source`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Download original source
+                <ArrowUpRight size={15} />
+              </a>
+              <FacultyDirectory
+                faculty={faculty}
+                disabled={busy || !editable}
+                onCreated={(person) =>
+                  setFaculty((current) => [...current, person])
+                }
+              />
+              <SessionReviewTable
+                key={`sessions-${selected.id}-${focusSequence}`}
+                initialRow={reviewRow}
+                sessions={sessions}
+                rooms={rooms}
+                faculty={faculty}
+                editable={editable && !busy}
+                update={update}
+                onRemove={(index) => {
+                  setSessions((current) =>
+                    current.filter((_, position) => position !== index),
+                  );
+                  changed();
+                }}
+              />
+              {editable && (
+                <>
+                  <button
+                    className="button button-outline button-small"
+                    disabled={busy}
+                    onClick={() => {
+                      setSessions((current) => [
+                        ...current,
+                        {
+                          weekday: 0,
+                          start_time: "09:00",
+                          end_time: "10:00",
+                          room_id: null,
+                          subject: "",
+                          faculty_ids: [],
+                        },
+                      ]);
+                      changed();
+                    }}
+                  >
+                    Add session
+                  </button>
+                  <section className="coverage-review">
+                    <h3>Rooms with complete schedule coverage</h3>
+                    <p>
+                      Select a room only when all courses using it are covered
+                      by verified schedules. A room appearing in this timetable
+                      is not enough.
+                    </p>
+                    <div className="coverage-checks">
+                      {rooms.map((room) => (
+                        <label key={room.id}>
+                          <input
+                            type="checkbox"
+                            disabled={busy}
+                            checked={coverage.includes(room.id)}
+                            onChange={(event) => {
+                              setCoverage((current) =>
+                                event.target.checked
+                                  ? [...current, room.id]
+                                  : current.filter((id) => id !== room.id),
+                              );
+                              changed();
+                            }}
+                          />
+                          {room.code}
+                          {room.building && <small>{room.building}</small>}
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                </>
               )}
-              <button disabled={busy} className="button button-primary">
-                {busy ? "Reading file…" : "Upload draft"}
-                <ArrowUpRight size={17} />
-              </button>
-            </form>
-          </section>
-          <section className="version-list">
-            <h2>Timetable register</h2>
+              {selected.status === "PUBLISHED" && !selected.archived_at && (
+                <PublicationSchedule
+                  key={`publication-${selected.id}`}
+                  version={selected}
+                  busy={busy}
+                  onRetire={retire}
+                />
+              )}
+            </div>
+          </details>
+          <details className="timetable-disclosure">
+            <summary>
+              Import logs · {selected.issues?.length || 0} review items
+            </summary>
+            <div className="timetable-disclosure-content">
+              {selected.issues?.length ? (
+                <IssueSummary
+                  key={`issues-${selected.id}`}
+                  issues={selected.issues}
+                  sessions={sessions}
+                />
+              ) : (
+                <p>No unresolved import issues.</p>
+              )}
+            </div>
+          </details>
+        </>
+      ) : (
+        <>
+          <TimetableUpload busy={busy} onUpload={upload} />
+          <section className="timetable-current">
+            <div className="timetable-section-heading">
+              <h2>Uploaded timetables</h2>
+              <span>{current.length} files</span>
+            </div>
             {loading ? (
               <Loading />
-            ) : versions.length ? (
-              versions.map((version) => (
-                <button
-                  key={version.id}
-                  className="version-row"
-                  onClick={() => open(version.id)}
-                  disabled={busy}
-                >
-                  <FileText size={24} />
-                  <span>
-                    <strong>{version.filename}</strong>
-                    <small>{version.scope_key}</small>
-                    <small>
-                      {version.status === "PUBLISHED"
-                        ? version.publication_windows
-                            .map((window) =>
-                              timetableValidity(
-                                window.valid_from,
-                                window.valid_until,
-                              ),
-                            )
-                            .join("; ") || "No scheduled dates"
-                        : timetableValidity(
-                            version.valid_from,
-                            version.valid_until,
-                          )}
-                    </small>
-                  </span>
-                  <Status value={versionStatus(version)} />
-                </button>
-              ))
+            ) : current.length ? (
+              <UploadedTimetables
+                versions={current}
+                busy={busy}
+                onOpen={open}
+                onDelete={deleteTimetable}
+              />
             ) : (
               <Empty title="No timetables uploaded.">
-                Upload the first source file to begin a review.
+                Upload a timetable to check its room mappings.
               </Empty>
             )}
           </section>
-        </div>
+          <details className="timetable-disclosure">
+            <summary>Logs and history · {history.length} files</summary>
+            <div className="timetable-disclosure-content">
+              {history.length ? (
+                <UploadedTimetables
+                  versions={history}
+                  busy={busy}
+                  onOpen={open}
+                />
+              ) : (
+                <p>No previous timetables.</p>
+              )}
+            </div>
+          </details>
+        </>
       )}
     </div>
   );

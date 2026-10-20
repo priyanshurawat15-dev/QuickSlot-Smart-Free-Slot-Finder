@@ -57,7 +57,7 @@ test("Co-Dev profile uses source contacts and has a readable mobile layout", asy
   ).toBeTruthy();
 });
 
-test("student membership is verified by the club head and never enables room booking", async ({
+test("verified club members can submit for their club while keeping student access", async ({
   browser,
 }, testInfo) => {
   const baseURL = process.env.QUICKSLOT_WEB_URL || "http://127.0.0.1:5173";
@@ -117,13 +117,36 @@ test("student membership is verified by the club head and never enables room boo
     ).toHaveText("Verified member");
     await student.goto("/requests/new");
     await expect(
-      student.getByText("Your account cannot access this page.", {
-        exact: false,
-      }),
-    ).toBeVisible();
-    await expect(
-      student.getByRole("button", { name: "Send request" }),
-    ).toHaveCount(0);
+      student.getByRole("combobox", { name: "Request for club" }),
+    ).toContainText("Co-Dev Club");
+    const rooms = await (await student.request.get("/api/rooms")).json();
+    await student.getByRole("combobox", { name: "Room", exact: true }).click();
+    await student
+      .getByRole("option", { name: new RegExp(`^${rooms[0].code} `) })
+      .click();
+    await student.getByLabel("Date", { exact: true }).fill("2027-01-12");
+    await student.getByRole("combobox", { name: "Booking reason" }).click();
+    await student
+      .getByRole("option", { name: "Workshop", exact: true })
+      .click();
+    const purpose = `Club workshop ${Date.now()}`;
+    await student.getByLabel("Additional details (optional)").fill(purpose);
+    await student.getByLabel("Expected attendance").fill("5");
+    const sent = student.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/requests") &&
+        response.request().method() === "POST",
+    );
+    await student.getByRole("button", { name: "Send request" }).click();
+    const response = await sent;
+    expect(response.ok()).toBeTruthy();
+    const booking = await response.json();
+    expect(booking.reason_category).toBe("WORKSHOP");
+    expect(booking.club_name).toBe("Co-Dev Club");
+    expect(booking.status).toBe("PENDING");
+    await expect(student.getByRole("heading", { name: purpose })).toBeVisible();
+    const identity = await (await student.request.get("/api/auth/me")).json();
+    expect(identity.user.role).toBe("STUDENT");
   } finally {
     await studentContext.close();
     await reviewerContext.close();

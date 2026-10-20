@@ -10,4 +10,16 @@ public record RequestInput(
     @NotNull LocalTime startTime,
     @NotNull LocalTime endTime,
     @NotBlank @Size(min = 3, max = 500) String purpose,
-    @Min(1) @Max(5000) int attendance) {}
+    @Min(1) @Max(5000) int attendance,
+    @Size(max = 32) String reasonCategory,
+    @Size(max = 36) String clubId) {
+  public RequestInput(
+      String roomId,
+      LocalDate date,
+      LocalTime startTime,
+      LocalTime endTime,
+      String purpose,
+      int attendance) {
+    this(roomId, date, startTime, endTime, purpose, attendance, null, null);
+  }
+}

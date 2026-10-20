@@ -29,6 +29,11 @@ public class RequestController {
     return service.list(auth.require(request));
   }
 
+  @GetMapping("/requests/eligibility")
+  public Map<String, ?> eligibility(HttpServletRequest request) {
+    return service.eligibility(auth.require(request));
+  }
+
   @PostMapping("/requests")
   @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
   public Map<String, ?> submit(

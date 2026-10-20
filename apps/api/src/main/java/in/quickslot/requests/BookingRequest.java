@@ -12,4 +12,8 @@ public record BookingRequest(
     LocalTime endTime,
     String purpose,
     int attendance,
-    String status) {}
+    String status,
+    String reasonCategory,
+    String clubId,
+    String clubName,
+    boolean clubMembershipRequired) {}

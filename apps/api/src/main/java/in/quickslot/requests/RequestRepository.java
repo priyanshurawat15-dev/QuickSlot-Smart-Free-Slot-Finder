@@ -27,7 +27,11 @@ public class RequestRepository {
         row.getObject("end_time", LocalTime.class),
         row.getString("purpose"),
         row.getInt("attendance"),
-        row.getString("status"));
+        row.getString("status"),
+        row.getString("reason_category"),
+        row.getString("club_id"),
+        row.getString("club_name"),
+        row.getBoolean("club_membership_required"));
   }
 
   public BookingRequest get(String id, boolean lock) {

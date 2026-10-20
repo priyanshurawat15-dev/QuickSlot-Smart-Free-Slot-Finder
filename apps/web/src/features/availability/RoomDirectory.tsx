@@ -10,12 +10,18 @@ interface RoomDirectoryProps {
   end: string;
 }
 
+const roomStateClass: Record<Availability["rooms"][number]["state"], string> = {
+  AVAILABLE: "room-card-available",
+  OCCUPIED: "room-card-occupied",
+  UNKNOWN: "room-card-unknown",
+};
+
 export function RoomDirectory({ rooms, date, start, end }: RoomDirectoryProps) {
   return (
     <div className="room-card-grid">
       {rooms.map((room) => (
         <Link
-          className={`room-row room-card${room.state === "UNKNOWN" ? "" : ` room-card-${room.state.toLowerCase()}`}`}
+          className={`room-row room-card ${roomStateClass[room.state]}`}
           key={room.id}
           to={`/rooms/${room.id}?date=${date}&start_time=${start}&end_time=${end}`}
         >

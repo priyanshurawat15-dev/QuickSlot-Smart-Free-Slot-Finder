@@ -14,7 +14,7 @@ Java 21, Spring Boot 3.5, PostgreSQL, React and TypeScript. The backend was rebu
 - Dated timetable replacement that retains historical windows and unrelated scopes.
 - PostgreSQL migrations, transaction coordination and a constraint preventing overlapping active bookings.
 
-Verified club membership never gives students booking permission. Club manager assignments require controlled administration; the local demo seed assigns its club-head account to Co-Dev.
+Verified club members may request a room for their club, subject to coordinator/HOD approval. Membership does not upgrade their student role or grant faculty access. Club manager assignments require controlled administration; the local demo seed assigns its club-head account to Co-Dev.
 
 The supplied timetable sources cover CSE only. Unknown coverage remains visible; no campus-wide availability is claimed.
 

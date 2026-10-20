@@ -41,7 +41,7 @@ Public search uses one repeatable-read database transaction. It exposes room det
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Pending: faculty or club head submits
+    [*] --> Pending: faculty, club head or verified member submits
     Pending --> Forwarded: responsible coordinator forwards
     Pending --> Approved: coordinator or scoped HOD approves
     Pending --> Rejected: coordinator or scoped HOD rejects
@@ -94,6 +94,9 @@ erDiagram
     ROOMS ||--o{ ROOM_SOURCES : evidenced
     ROOMS ||--o{ ALLOCATIONS : governed
     USERS ||--o{ BOOKING_REQUESTS : submits
+    USERS ||--o{ CLUB_MEMBERSHIPS : joins
+    CLUBS ||--o{ CLUB_MEMBERSHIPS : verifies
+    CLUBS |o--o{ BOOKING_REQUESTS : requested_for
     ROOMS ||--o{ BOOKING_REQUESTS : requested
     BOOKING_REQUESTS ||--o{ DECISIONS : records
     ROOMS ||--o{ OCCUPANCIES : reserves
@@ -126,7 +129,7 @@ The supplied CSE III and V PDFs both identify 017(CR), 106(LT), 107(CR), 113(CR)
 
 ## Club profiles and student verification
 
-Co-Dev profile, officials, mentor and social/contact links come from the supplied Aarambh 4.0 project. Public profiles expose no membership applications. Students sign in to apply. Assigned club heads or same-campus administrators review applications. Verified membership does not give students room booking permission.
+Co-Dev profile, officials, mentor and social/contact links come from the supplied Aarambh 4.0 project. Public profiles expose no membership applications. Students sign in to apply. Assigned club heads or same-campus administrators review applications. Verified members can submit a room request for that club, with allocation approval still required. Their account remains a student account and cannot access staff timetables or review others' requests.
 
 ```mermaid
 stateDiagram-v2
@@ -137,6 +140,41 @@ stateDiagram-v2
 ```
 
 A unique club/student constraint and account row lock prevent duplicate join requests. Decisions lock the membership row and write an audit event in the same transaction. Review authority is scoped to the club; an unrelated head cannot view applications or decide them.
+
+Request eligibility comes from the server, including the student's verified active campus clubs. Submission stores the reason category and club identity. Approval rechecks current membership and club/account status under row locks, so a revoked membership cannot bypass the check through an older pending request. Faculty can submit an extra-class request without a club. Other reasons accept manual details.
+
+```mermaid
+flowchart TD
+    A[Signed-in requester] --> B{Student?}
+    B -->|Yes| C[Choose a verified active campus club]
+    C --> D{Membership still verified?}
+    D -->|No| E[Reject submission]
+    B -->|No| F[Choose reason and optional club]
+    D -->|Yes| F
+    F --> G[Select room, whole-hour slot and attendance]
+    G --> H[Save pending request with reason and club snapshot]
+    H --> I[Coordinator or scoped HOD reviews]
+    I --> J[Recheck membership, authority, capacity and conflicts]
+    J --> K[Approve and allocate, reject, or forward]
+```
+
+## Timetable management screen
+
+The centered upload accepts a file picker or drag-and-drop. Current files have a delete action; logs and historical versions stay inside a closed disclosure. After upload, the mapping review groups actual extracted sessions by room and flags unresolved rooms, invalid times and overlaps for cross-checking. Detailed session edits and source issues remain available without dominating the first view.
+
+```mermaid
+flowchart TD
+    A[Drop or choose a timetable] --> B[Upload retained source]
+    B --> C[View matched room cards and flagged rows]
+    C --> D[Cross-check source and correct detailed mappings]
+    D --> E[Review and publish]
+    E --> F[Current uploaded timetables]
+    F --> G[Delete one timetable]
+    G --> H[Archive source and end its active timetable allocations]
+    H --> I[View earlier evidence in collapsed history]
+```
+
+Deleting archives one revision and removes its publication from today onward. Shared room inventory, other timetables and approved bookings are retained. Earlier dates and original files remain in history. Archived versions cannot be edited, republished or reseeded.
 
 ## Floors and availability labels
 

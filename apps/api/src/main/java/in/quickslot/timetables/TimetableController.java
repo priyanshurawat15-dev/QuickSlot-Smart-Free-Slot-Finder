@@ -34,6 +34,8 @@ public class TimetableController {
 
   public record PublishInput(Integer expectedRevision) {}
 
+  public record RetireInput(Integer expectedRevision, LocalDate effectiveFrom) {}
+
   @GetMapping
   public Object list(HttpServletRequest request) {
     return service.list(auth.admin(request));
@@ -45,7 +47,7 @@ public class TimetableController {
       @RequestParam MultipartFile file,
       @RequestParam("scope_key") String scopeKey,
       @RequestParam("valid_from") LocalDate from,
-      @RequestParam("valid_until") LocalDate until,
+      @RequestParam(value = "valid_until", required = false) LocalDate until,
       @RequestParam(value = "coverage_room_ids", defaultValue = "[]") String coverage)
       throws IOException {
     var user = auth.admin(request);
@@ -113,6 +115,15 @@ public class TimetableController {
     if (payload.expectedRevision() == null || payload.expectedRevision() < 0)
       throw new ApiException(422, "Provide expected_revision");
     return service.publish(id, payload.expectedRevision(), user);
+  }
+
+  @PostMapping("/{id}/retire")
+  public Object retire(
+      @PathVariable String id, @RequestBody RetireInput payload, HttpServletRequest request) {
+    var user = auth.admin(request);
+    if (payload.expectedRevision() == null || payload.expectedRevision() < 0)
+      throw new ApiException(422, "Provide expected_revision");
+    return service.retire(id, payload.expectedRevision(), payload.effectiveFrom(), user);
   }
 
   @GetMapping("/{id}/source")

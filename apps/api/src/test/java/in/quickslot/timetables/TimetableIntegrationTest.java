@@ -5,12 +5,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import in.quickslot.availability.AvailabilityService;
 import in.quickslot.identity.AuthService;
 import in.quickslot.shared.ApiException;
 import in.quickslot.shared.AuthenticatedUser;
 import jakarta.servlet.http.Cookie;
 import java.sql.DriverManager;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +46,7 @@ class TimetableIntegrationTest {
   @Autowired JdbcTemplate jdbc;
   @Autowired ObjectMapper json;
   @Autowired MockMvc mvc;
+  @Autowired AvailabilityService availability;
 
   @DynamicPropertySource
   static void database(DynamicPropertyRegistry registry) throws Exception {
@@ -242,9 +245,106 @@ class TimetableIntegrationTest {
   }
 
   @Test
+  void openEndedPublicationDrivesAvailabilityYearsLaterWithoutInventingCoverage() throws Exception {
+    String id = reviewed("CSE-V", LocalDate.of(2026, 7, 13), null, "09:00", "10:00");
+    var published = service.publish(id, 1, admin);
+    assertThat(published).containsEntry("valid_until", null);
+    assertThat((List<?>) published.get("publication_windows")).hasSize(1);
+    var monday = LocalDate.of(2032, 7, 12);
+    assertThat(availability.state("room", monday, LocalTime.of(9, 0), LocalTime.of(10, 0)))
+        .isEqualTo("OCCUPIED");
+    assertThat(availability.state("room", monday, LocalTime.of(10, 0), LocalTime.of(11, 0)))
+        .isEqualTo("AVAILABLE");
+    assertThat(availability.state("missing", monday, LocalTime.of(10, 0), LocalTime.of(11, 0)))
+        .isEqualTo("UNKNOWN");
+    assertThat(service.covered("room", LocalDate.of(2026, 7, 12))).isFalse();
+  }
+
+  @Test
+  void openEndedReplacementKeepsOldDatesAndRemovesOldFutureSessions() throws Exception {
+    String original = reviewed("CSE-V", LocalDate.of(2026, 7, 13), null, "09:00", "10:00");
+    service.publish(original, 1, admin);
+    String next = reviewed("CSE-V", LocalDate.of(2026, 10, 1), null, "11:00", "12:00");
+    service.publish(next, 1, admin);
+    assertThat(service.busy("room", LocalDate.of(2026, 9, 28)))
+        .extracting(value -> value.startTime())
+        .containsExactly("09:00");
+    assertThat(service.busy("room", LocalDate.of(2032, 7, 12)))
+        .extracting(value -> value.startTime())
+        .containsExactly("11:00");
+    assertThat(service.source(original, admin).content()).isNotEmpty();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT valid_until FROM timetable_publications WHERE revision_id=?",
+                LocalDate.class,
+                original))
+        .isEqualTo(LocalDate.of(2026, 9, 30));
+  }
+
+  @Test
+  void finiteReplacementRestoresUnboundedTailAndRejectsUnboundedScopeConflicts() throws Exception {
+    String original = reviewed("CSE-V", LocalDate.of(2026, 7, 13), null, "09:00", "10:00");
+    service.publish(original, 1, admin);
+    String temporary =
+        reviewed("CSE-V", LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), "11:00", "12:00");
+    service.publish(temporary, 1, admin);
+    assertThat(service.busy("room", LocalDate.of(2032, 7, 12)))
+        .extracting(value -> value.startTime())
+        .containsExactly("09:00");
+    String conflict = reviewed("CSE-III", LocalDate.of(2032, 7, 1), null, "09:30", "10:30");
+    assertThatThrownBy(() -> service.publish(conflict, 1, admin))
+        .isInstanceOf(ApiException.class)
+        .hasMessageContaining("another published scope");
+    assertThat(service.detail(conflict, admin).get("status")).isEqualTo("REVIEWED");
+  }
+
+  @Test
+  void retirementEndsCoveragePreservesHistoryAndRejectsStaleAndRepeatedRemoval() throws Exception {
+    String id = reviewed("CSE-V", LocalDate.of(2026, 7, 13), null, "09:00", "10:00");
+    service.publish(id, 1, admin);
+    assertThatThrownBy(() -> service.retire(id, 1, LocalDate.of(2026, 10, 1), admin))
+        .isInstanceOf(ApiException.class)
+        .hasMessageContaining("changed");
+    var retired = service.retire(id, 2, LocalDate.of(2026, 10, 1), admin);
+    assertThat(retired).containsEntry("version", 3).containsEntry("status", "PUBLISHED");
+    assertThat(service.covered("room", LocalDate.of(2026, 9, 30))).isTrue();
+    assertThat(service.covered("room", LocalDate.of(2026, 10, 1))).isFalse();
+    assertThat(
+            availability.state(
+                "room", LocalDate.of(2032, 7, 12), LocalTime.of(9, 0), LocalTime.of(10, 0)))
+        .isEqualTo("UNKNOWN");
+    assertThat(service.source(id, admin).content()).isNotEmpty();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM audit_events WHERE action='timetable.retired' AND"
+                    + " details->'previous_windows'->0->>'valid_from'='2026-07-13' AND"
+                    + " details->'previous_windows'->0->>'valid_until' IS NULL",
+                Integer.class))
+        .isEqualTo(1);
+    assertThatThrownBy(() -> service.retire(id, 3, LocalDate.of(2026, 10, 1), admin))
+        .isInstanceOf(ApiException.class)
+        .hasMessageContaining("already inactive");
+  }
+
+  @Test
+  void unboundedPublicationStillDetectsApprovedBookingsYearsLater() throws Exception {
+    String id = reviewed("CSE-V", LocalDate.of(2026, 7, 13), null, "09:00", "10:00");
+    jdbc.update(
+        "INSERT INTO occupancies(id,room_id,starts_at,ends_at,kind,source_id) VALUES"
+            + " ('future-booking','room',?,?,'BOOKING','future-booking')",
+        OffsetDateTime.parse("2032-07-12T09:30:00+05:30"),
+        OffsetDateTime.parse("2032-07-12T10:30:00+05:30"));
+    assertThatThrownBy(() -> service.publish(id, 1, admin))
+        .isInstanceOf(ApiException.class)
+        .hasMessageContaining("approved booking");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM timetable_publications", Integer.class))
+        .isZero();
+  }
+
+  @Test
   void concurrentPublicationOfConflictingScopesHasOneWinner() throws Exception {
     var from = LocalDate.of(2026, 7, 1);
-    var until = LocalDate.of(2026, 12, 31);
+    LocalDate until = null;
     String a = reviewed("CSE-V", from, until, "09:00", "10:00"),
         b = reviewed("CSE-III", from, until, "09:30", "10:30");
     try (var executor = Executors.newFixedThreadPool(2)) {

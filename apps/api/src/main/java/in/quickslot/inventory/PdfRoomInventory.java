@@ -17,20 +17,23 @@ public final class PdfRoomInventory {
   public List<RoomLabel> extract(byte[] content) throws IOException {
     try (var document = Loader.loadPDF(content)) {
       var text = new PDFTextStripper().getText(document);
-      var found = new LinkedHashSet<RoomLabel>();
-      var matcher = ROOM.matcher(text);
-      while (matcher.find()) {
-        String code = matcher.group(1).toUpperCase(java.util.Locale.ROOT);
-        String convention = matcher.group(2).toUpperCase(java.util.Locale.ROOT);
-        found.add(
-            new RoomLabel(
-                code,
-                convention.equals("LT") ? "LT" : "CLASSROOM",
-                code + " (" + convention + ")"));
-      }
+      var found = labels(text);
       if (found.isEmpty())
         throw new IOException("No CR or LT room labels found in the source timetable");
-      return List.copyOf(found);
+      return found;
     }
+  }
+
+  public List<RoomLabel> labels(String text) {
+    var found = new LinkedHashSet<RoomLabel>();
+    var matcher = ROOM.matcher(text);
+    while (matcher.find()) {
+      String code = matcher.group(1).toUpperCase(java.util.Locale.ROOT);
+      String convention = matcher.group(2).toUpperCase(java.util.Locale.ROOT);
+      found.add(
+          new RoomLabel(
+              code, convention.equals("LT") ? "LT" : "CLASSROOM", code + " (" + convention + ")"));
+    }
+    return List.copyOf(found);
   }
 }

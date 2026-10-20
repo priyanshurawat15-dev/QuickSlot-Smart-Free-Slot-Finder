@@ -62,7 +62,7 @@ Idempotency keys distinguish repeated commands from changed input. An owner may 
 
 ```mermaid
 flowchart TD
-    A[Administrator uploads PDF or DOCX] --> B[Extract sessions and evidence]
+    A[Administrator uploads PDF or DOCX with start date] --> B[Extract sessions and evidence]
     B --> C[Retain draft with unresolved issues]
     C --> D[Map faculty and rooms and verify dates]
     D --> E[Explicit coverage acknowledgement]
@@ -72,9 +72,16 @@ flowchart TD
     H -->|Yes| I[Reject publication and preserve current schedule]
     H -->|No| J[Replace overlapping dates in the same scope]
     J --> K[Retain old windows outside replacement and other scopes]
+    K --> L[Continue without expiry when no end date is set]
+    L --> M[Administrator removes from a chosen date]
+    M --> N[End effective windows and retain source and earlier dates]
 ```
 
-PDF extraction reads ruled table geometry and glyph positions. Word extraction uses the template's marked tables and explicit IDs. Neither adapter guesses unresolved faculty or room identities. Administrators can download the original source beside the extracted rows. A supplied Word template is available in the timetable administration screen.
+PDF extraction reads ruled table geometry and glyph positions. Exact CR/LT labels are matched only to a single active room in the same campus. Unknown or ambiguous labels remain for review; room matching does not confirm complete coverage. Word extraction uses the template's marked tables and explicit IDs. Neither adapter guesses unresolved faculty identities. Administrators can download the original source beside the extracted rows. A supplied Word template is available in the timetable administration screen.
+
+The end date is optional and empty by default. A null end means the timetable continues until an administrator replaces or removes it. Publishing a replacement changes the overlapping dates within that scope; uploading a draft alone does not change availability. Removal ends that revision's effective windows from the administrator's chosen date. Earlier windows, original source bytes and audit events remain available. Both commands use the scheduling write lock and reject stale revision numbers.
+
+Room colors come from the availability response for the selected date and hours: green for confirmed free, red for a class or approved booking, neutral when completeness is unconfirmed. No matching class in a single course PDF is sufficient to mark a room free.
 
 Reviewed classes remain dated publication rules rather than materialized daily occupancy rows. Availability combines those rules with booking occupancy. A shared PostgreSQL write lock makes publication and approval mutually consistent; replacing it with finer resource locks is a future measured optimization. The importer currently performs bounded extraction inside the HTTP request. There is no background worker or external notification service in this milestone.
 

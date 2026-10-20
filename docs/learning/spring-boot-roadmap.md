@@ -186,7 +186,11 @@ Keep extracted candidates separate from reviewed events. An empty timetable cell
 
 Retain source bytes, digest and cell/page evidence. Preserve room codes as strings. A merged lab session needs its whole interval. Ambiguous room identities, faculty alternatives and electives stay unresolved. Do not quietly assign the first matching room.
 
-A publication has a scope and effective dates. Replacing CSE semester V must preserve semester III and other courses. Keep old dates reproducible. Reject a replacement that conflicts with a confirmed booking until someone explicitly resolves the conflict.
+A publication has a scope, a start date and an optional end. No end means it continues until administrator removal or replacement. PostgreSQL date ranges, Java comparisons and JSON responses must handle this unbounded end without an invented expiry.
+
+Replacing CSE semester V preserves semester III and other scopes. Removal ends effective windows from the chosen date and retains earlier dates and source bytes. Uploading a draft changes no active schedule. Publication rejects conflicts with confirmed bookings.
+
+Read TimetableService's upload, publish, retire and active methods with the nullable-end Flyway migration. Exact PDF room matches use the active campus inventory; ambiguity stays unresolved and matching never confirms whole-room coverage.
 
 Concurrent administrators need stale-edit protection. A review or publish command carries the revision it was based on. If another edit wins first, reject the stale command and ask the user to refresh.
 
@@ -195,9 +199,10 @@ Concurrent administrators need stale-edit protection. A review or publish comman
 - Compare one extracted lecture and one merged lab against the original PDF.
 - Upload an incomplete Word template and verify it remains a draft with issues.
 - Publish two independent scopes, replace one, then check both historical and future dates.
+- Publish without expiry and search a year ahead. Replace it, then remove the replacement. Confirm earlier schedules and sources remain and uncovered dates are not marked free.
 - Explain why a newer upload timestamp does not establish a newer effective timetable.
 
-Learn a durable background job/worker model before allowing large imports at university scale. A bounded foreground parser is a prototype tradeoff, not equivalent to crash-recoverable processing. References 11 and 12 cover the Java document libraries.
+Learn durable background jobs before allowing large imports. The current foreground parser cannot recover interrupted work. References 11 and 12 cover the Java document libraries.
 
 ## Test behavior rather than annotations
 

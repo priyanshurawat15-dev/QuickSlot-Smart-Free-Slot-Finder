@@ -717,11 +717,15 @@
 }
 .room-card-available {
   --card-accent: #147246;
-  --card-surface: #f0fcf5;
+  --card-surface: #e2f4e9;
+  border-color: #9ac9ad;
+  border-top-color: var(--card-accent);
 }
 .room-card-occupied {
   --card-accent: #af3445;
-  --card-surface: #fff3f5;
+  --card-surface: #fce5e9;
+  border-color: #dea2ae;
+  border-top-color: var(--card-accent);
 }
 .room-card-unknown {
   --card-accent: #62615d;

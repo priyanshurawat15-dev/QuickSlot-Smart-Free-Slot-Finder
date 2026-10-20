@@ -105,10 +105,15 @@ export interface ImportVersion {
   scope_key: string;
   status: string;
   valid_from: string;
-  valid_until: string;
+  valid_until: string | null;
   filename: string;
   sha256?: string;
   sessions?: ImportSession[];
   issues?: ImportIssue[];
   coverage_room_ids: string[];
+  publication_windows: {
+    id: string;
+    valid_from: string;
+    valid_until: string | null;
+  }[];
 }

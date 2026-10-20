@@ -1,0 +1,18 @@
+.issue-group {
+  margin-top: 12px;
+}
+
+.issue-group summary {
+  cursor: pointer;
+}
+
+.issue-group summary span {
+  display: block;
+  margin: 4px 0 0 18px;
+}
+
+.issue-references {
+  margin: 12px 0;
+  padding-left: 22px;
+  line-height: 1.7;
+}

@@ -1,4 +1,9 @@
+import {
+  PublicationSchedule,
+  timetableValidity,
+} from "../features/timetables/PublicationSchedule";
 import { SessionReviewTable } from "../features/timetables/SessionReviewTable";
+import { IssueSummary } from "../features/timetables/IssueSummary";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   FileText,
@@ -19,6 +24,16 @@ import {
   PageHeading,
   Status,
 } from "../components/ui";
+
+function versionStatus(version: ImportVersion) {
+  const hasScheduledDates = version.publication_windows.some(
+    (window) => !window.valid_until || window.valid_until >= campusToday(),
+  );
+  return version.status === "PUBLISHED" && !hasScheduledDates
+    ? "Historical"
+    : version.status;
+}
+
 export function Timetables() {
   const [faculty, setFaculty] = useState<{ id: string; name: string }[]>([]);
   const [versions, setVersions] = useState<ImportVersion[]>([]);
@@ -31,6 +46,7 @@ export function Timetables() {
   const [scope, setScope] = useState("");
   const [from, setFrom] = useState(campusToday());
   const [until, setUntil] = useState("");
+  const [hasEndDate, setHasEndDate] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -58,6 +74,7 @@ export function Timetables() {
     try {
       const detail = await api.version(id);
       setSelected(detail);
+      setSuccess("");
       setDirty(false);
       setSessions(detail.sessions || []);
       setCoverage(detail.coverage_room_ids || []);
@@ -74,7 +91,12 @@ export function Timetables() {
     setError(null);
     setSuccess("");
     try {
-      const detail = await api.upload(file, scope.trim(), from, until);
+      const detail = await api.upload(
+        file,
+        scope.trim(),
+        from,
+        hasEndDate ? until : null,
+      );
       await load();
       setSelected(detail);
       setDirty(false);
@@ -140,6 +162,30 @@ export function Timetables() {
     setAcknowledge(false);
     setDirty(true);
   };
+  const retire = async (removeFrom: string) => {
+    if (!selected) return false;
+    setBusy(true);
+    setError(null);
+    setSuccess("");
+    try {
+      const result = await api.retire(
+        selected.id,
+        selected.version,
+        removeFrom,
+      );
+      setSelected(result);
+      setSuccess(
+        `Timetable removed from ${removeFrom} onward. Earlier scheduled dates and the original file remain in history.`,
+      );
+      await load();
+      return true;
+    } catch (e) {
+      setError(e);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div className="container page">
       <PageHeading
@@ -152,6 +198,7 @@ export function Timetables() {
         <>
           <button
             className="back-link"
+            disabled={busy}
             onClick={() => {
               setSelected(null);
               setSuccess("");
@@ -164,11 +211,11 @@ export function Timetables() {
             <div>
               <h2>{selected.filename}</h2>
               <p>
-                {selected.scope_key} · {selected.valid_from} to{" "}
-                {selected.valid_until}
+                {selected.scope_key} ·{" "}
+                {timetableValidity(selected.valid_from, selected.valid_until)}
               </p>
             </div>
-            <Status value={selected.status} />
+            <Status value={versionStatus(selected)} />
           </div>
           <a
             className="text-link source-download"
@@ -183,28 +230,34 @@ export function Timetables() {
             the course, semester and section set this version replaces. Other
             timetable scopes remain active.
           </Notice>
+          {selected.status === "PUBLISHED" && (
+            <PublicationSchedule
+              key={`publication-${selected.id}`}
+              version={selected}
+              busy={busy}
+              onRetire={retire}
+            />
+          )}
           {!!selected.issues?.length && (
-            <div className="issue-list">
-              <h3>Resolve before publication</h3>
-              {selected.issues.map((issue, i) => (
-                <p key={i}>
-                  <strong>{issue.code.replaceAll("_", " ")}</strong>{" "}
-                  {issue.message}
-                </p>
-              ))}
-            </div>
+            <IssueSummary
+              key={`issues-${selected.id}`}
+              issues={selected.issues}
+              sessions={sessions}
+            />
           )}
           <FacultyDirectory
             faculty={faculty}
+            disabled={busy}
             onCreated={(person) =>
               setFaculty((current) => [...current, person])
             }
           />
           <SessionReviewTable
+            key={`sessions-${selected.id}`}
             sessions={sessions}
             rooms={rooms}
             faculty={faculty}
-            editable={selected.status !== "PUBLISHED"}
+            editable={selected.status !== "PUBLISHED" && !busy}
             update={update}
             onRemove={(index) => {
               setSessions((current) => current.filter((_, i) => i !== index));
@@ -216,6 +269,7 @@ export function Timetables() {
             <>
               <button
                 className="button button-outline button-small"
+                disabled={busy}
                 onClick={() => {
                   setSessions((value) => [
                     ...value,
@@ -245,6 +299,7 @@ export function Timetables() {
                     <label key={room.id}>
                       <input
                         type="checkbox"
+                        disabled={busy}
                         checked={coverage.includes(room.id)}
                         onChange={(e) => {
                           setCoverage((current) =>
@@ -264,6 +319,7 @@ export function Timetables() {
                 <label className="checkbox-label">
                   <input
                     type="checkbox"
+                    disabled={busy}
                     checked={acknowledge}
                     onChange={(e) => setAcknowledge(e.target.checked)}
                   />
@@ -318,6 +374,7 @@ export function Timetables() {
                 PDF or editable Word timetable
                 <input
                   required
+                  disabled={busy}
                   type="file"
                   accept=".pdf,.docx"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
@@ -327,32 +384,52 @@ export function Timetables() {
                 Replacement scope
                 <input
                   required
+                  disabled={busy}
                   placeholder="e.g. CSE / semester V / all sections"
                   value={scope}
                   onChange={(e) => setScope(e.target.value)}
                 />
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={hasEndDate}
+                  disabled={busy}
+                  onChange={(e) => setHasEndDate(e.target.checked)}
+                />
+                Set an end date
               </label>
               <div className="form-columns">
                 <label>
                   Effective from
                   <input
                     required
+                    disabled={busy}
                     type="date"
                     value={from}
                     onChange={(e) => setFrom(e.target.value)}
                   />
                 </label>
-                <label>
-                  Valid until
-                  <input
-                    required
-                    min={from}
-                    type="date"
-                    value={until}
-                    onChange={(e) => setUntil(e.target.value)}
-                  />
-                </label>
+                {hasEndDate && (
+                  <label>
+                    Valid until
+                    <input
+                      required
+                      disabled={busy}
+                      min={from}
+                      type="date"
+                      value={until}
+                      onChange={(e) => setUntil(e.target.value)}
+                    />
+                  </label>
+                )}
               </div>
+              {!hasEndDate && (
+                <p>
+                  No end date. The published timetable stays active until an
+                  administrator removes it or publishes a replacement.
+                </p>
+              )}
               <button disabled={busy} className="button button-primary">
                 {busy ? "Reading file…" : "Upload draft"}
                 <ArrowUpRight size={17} />
@@ -376,10 +453,22 @@ export function Timetables() {
                     <strong>{version.filename}</strong>
                     <small>{version.scope_key}</small>
                     <small>
-                      {version.valid_from} to {version.valid_until}
+                      {version.status === "PUBLISHED"
+                        ? version.publication_windows
+                            .map((window) =>
+                              timetableValidity(
+                                window.valid_from,
+                                window.valid_until,
+                              ),
+                            )
+                            .join("; ") || "No scheduled dates"
+                        : timetableValidity(
+                            version.valid_from,
+                            version.valid_until,
+                          )}
                     </small>
                   </span>
-                  <Status value={version.status} />
+                  <Status value={versionStatus(version)} />
                 </button>
               ))
             ) : (

@@ -1,0 +1,18 @@
+.review-table-wrap {
+  /* Keep the wide table from expanding the mobile layout viewport. */
+  contain: layout paint;
+}
+
+.session-pagination {
+  justify-content: flex-start;
+  margin-block: 16px;
+}
+
+.session-pagination .select-field {
+  flex: 0 1 240px;
+}
+
+.session-pagination [role="status"] {
+  flex: 1 1 140px;
+  text-align: center;
+}

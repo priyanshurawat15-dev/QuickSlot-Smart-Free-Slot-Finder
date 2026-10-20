@@ -4,9 +4,11 @@ import { ErrorText } from "../../components/ui";
 export function FacultyDirectory({
   faculty,
   onCreated,
+  disabled = false,
 }: {
   faculty: { id: string; name: string }[];
   onCreated(person: { id: string; name: string }): void;
+  disabled?: boolean;
 }) {
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -36,7 +38,9 @@ export function FacultyDirectory({
       </summary>
       <p>
         Faculty records identify timetable teachers. They do not create login
-        accounts. Select one or more mapped teachers for each session below.
+        accounts. Map teachers when known to include their classes in the staff
+        timetable lookup. Room schedules can be reviewed without a faculty
+        mapping.
       </p>
       <form className="stack-form" onSubmit={create}>
         <div className="form-columns">
@@ -44,6 +48,7 @@ export function FacultyDirectory({
             Faculty ID
             <input
               name="id"
+              disabled={disabled || busy}
               required
               maxLength={80}
               placeholder="Stable college faculty ID"
@@ -51,11 +56,19 @@ export function FacultyDirectory({
           </label>
           <label>
             Full name
-            <input name="name" required maxLength={150} />
+            <input
+              name="name"
+              required
+              maxLength={150}
+              disabled={disabled || busy}
+            />
           </label>
         </div>
         {!!error && <ErrorText error={error} />}
-        <button className="button button-outline button-small" disabled={busy}>
+        <button
+          className="button button-outline button-small"
+          disabled={disabled || busy}
+        >
           Add faculty record
         </button>
       </form>

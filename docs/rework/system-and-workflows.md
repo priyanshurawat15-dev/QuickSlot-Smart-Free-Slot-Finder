@@ -107,6 +107,19 @@ Campus room coverage must be confirmed by an administrator after accounting for 
 
 For the current local demonstration, the user chose the supplied CSE III and V timetables as the availability dataset. The demo profile publishes source-backed classroom/LT occupancy and uses that dataset for green/red results. It includes elective room assignments printed in each page's legend. Faculty identities are optional for room occupancy, so missing faculty does not require an invented name. This initial publication is persisted once; restarting the app must not restore a timetable an administrator removed or replaced. The normal publication and conflict rules continue to govern subsequent changes.
 
+```mermaid
+flowchart TD
+    A[Demo startup with seeding enabled] --> B{Supplied timetable scope retained?}
+    B -->|Yes| C[Keep administrator's current publication or removal]
+    B -->|No| D[Read original PDF and same-page elective legends]
+    D --> E[Deduplicate shared classes and retain source occurrences]
+    E --> F{Every classroom and LT mapping resolved?}
+    F -->|No| G[Stop without publishing unchecked occupancy]
+    F -->|Yes| H[Review and publish supplied dataset without expiry]
+    H --> I[Availability combines classes and approved bookings]
+    I --> J[Green free / red in use for selected date and hour]
+```
+
 ## Provided room inventory
 
 The supplied CSE III and V PDFs both identify 017(CR), 106(LT), 107(CR), 113(CR), 114(CR), 115(CR), 116(CR), 117(CR), 123(CR), 124(LT), 206(LT) and 224(LT). The local seed reads those files rather than inventing rooms. It stores a SHA-256 and the printed label per source. Building and capacity remain unknown. This inventory extraction does not attest complete timetable coverage or publish teaching sessions.

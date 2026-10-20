@@ -119,13 +119,13 @@ export const api = {
     file: File,
     scope_key: string,
     valid_from: string,
-    valid_until: string,
+    valid_until: string | null,
   ) => {
     const body = new FormData();
     body.append("file", file);
     body.append("scope_key", scope_key);
     body.append("valid_from", valid_from);
-    body.append("valid_until", valid_until);
+    if (valid_until) body.append("valid_until", valid_until);
     body.append("coverage_room_ids", "[]");
     return send<ImportVersion>("/timetables", { method: "POST", body });
   },
@@ -149,6 +149,11 @@ export const api = {
     send<ImportVersion>(`/timetables/${id}/publish`, {
       method: "POST",
       body: JSON.stringify({ expected_revision }),
+    }),
+  retire: (id: string, expected_revision: number, effective_from: string) =>
+    send<ImportVersion>(`/timetables/${id}/retire`, {
+      method: "POST",
+      body: JSON.stringify({ expected_revision, effective_from }),
     }),
   createRoom: (room: Omit<Room, "id">) =>
     send<Room>("/rooms", { method: "POST", body: JSON.stringify(room) }),

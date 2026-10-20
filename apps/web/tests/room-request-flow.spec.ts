@@ -1,17 +1,28 @@
 import { expect, test } from "@playwright/test";
 
-test("unverified schedules have no public verification badge or false free label", async ({ page, request }) => {
+test("room cards follow API status colors without public verification badges", async ({ page, request }) => {
   const query = "date=2027-01-12&start_time=10:00&end_time=11:00";
   const response = await request.get(`/api/availability?${query}`);
   expect(response.ok()).toBeTruthy();
   const data = await response.json() as { rooms: { id: string; state: string }[] };
-  const room = data.rooms.find((item) => item.state === "UNKNOWN");
-  test.skip(!room, "This dataset has no room with an unverified schedule.");
+  expect(data.rooms.length).toBeGreaterThan(0);
   await page.goto(`/?${query}`);
-  const card = page.locator(`.room-card[href*="/rooms/${room!.id}?"]`);
-  await expect(card).toBeVisible();
-  await expect(card.locator(".status")).toHaveCount(0);
-  await expect(card).not.toHaveClass(/room-card-available/);
+  const colors: Record<string, { name: string; border: string }> = {
+    AVAILABLE: { name: "available", border: "rgb(20, 114, 70)" },
+    OCCUPIED: { name: "occupied", border: "rgb(175, 52, 69)" },
+    UNKNOWN: { name: "unknown", border: "rgb(98, 97, 93)" },
+  };
+  for (const room of data.rooms) {
+    const card = page.locator(`.room-card[href*="/rooms/${room.id}?"]`);
+    await expect(card).toHaveClass(new RegExp(`room-card-${colors[room.state].name}`));
+    await expect(card).toHaveCSS("border-top-color", colors[room.state].border);
+    if (room.state === "UNKNOWN") {
+      await expect(card.locator(".status")).toHaveCount(0);
+      await expect(card).not.toHaveClass(/room-card-available/);
+    } else {
+      await expect(card.locator(".status")).toBeVisible();
+    }
+  }
   await expect(page.getByText("Needs verification", { exact: true })).toHaveCount(0);
 });
 
